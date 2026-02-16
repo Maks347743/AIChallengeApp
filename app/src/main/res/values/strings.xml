@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">AI Challenge App</string>
+    <string name="check_connection">Проверить подключение</string>
+</resources>
