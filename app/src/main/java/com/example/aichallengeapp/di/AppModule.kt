@@ -1,9 +1,11 @@
 package com.example.aichallengeapp.di
 
+import android.content.Context
 import com.example.aichallengeapp.BuildConfig
+import com.example.aichallengeapp.data.SettingsStorage
 import com.example.aichallengeapp.data.repository.ChatRepositoryImpl
 import com.example.aichallengeapp.domain.repository.ChatRepository
-import com.example.aichallengeapp.domain.usecase.CheckConnectionUseCase
+import com.example.aichallengeapp.domain.usecase.SendChatMessageUseCase
 import com.example.aichallengeapp.presentation.HomeViewModel
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -44,6 +46,10 @@ val appModule = module {
     }
 
     // Data
+    single {
+        SettingsStorage(get<Context>().getSharedPreferences("chat_settings", Context.MODE_PRIVATE))
+    }
+
     single<ChatRepository> {
         ChatRepositoryImpl(
             httpClient = get(),
@@ -53,8 +59,8 @@ val appModule = module {
     }
 
     // Domain
-    factory { CheckConnectionUseCase(chatRepository = get()) }
+    factory { SendChatMessageUseCase(chatRepository = get()) }
 
     // Presentation
-    viewModel { HomeViewModel(checkConnectionUseCase = get()) }
+    viewModel { HomeViewModel(sendChatMessageUseCase = get(), settingsStorage = get()) }
 }

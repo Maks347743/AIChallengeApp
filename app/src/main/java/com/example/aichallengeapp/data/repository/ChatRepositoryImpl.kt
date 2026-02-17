@@ -2,8 +2,8 @@ package com.example.aichallengeapp.data.repository
 
 import com.example.aichallengeapp.data.model.ChatRequest
 import com.example.aichallengeapp.data.model.ChatResponse
-import com.example.aichallengeapp.data.model.DeepSeekDefaults
 import com.example.aichallengeapp.data.model.MessageDto
+import com.example.aichallengeapp.domain.model.ChatMessage
 import com.example.aichallengeapp.domain.repository.ChatRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -23,19 +23,14 @@ class ChatRepositoryImpl(
         private const val CHAT_ENDPOINT = "/chat/completions"
     }
 
-    override suspend fun sendMessage(message: String): Result<String> {
+    override suspend fun sendMessage(
+        messages: List<ChatMessage>,
+        maxTokens: Int?
+    ): Result<String> {
         return runCatching {
             val request = ChatRequest(
-                messages = listOf(
-                    MessageDto(
-                        role = DeepSeekDefaults.ROLE_SYSTEM,
-                        content = DeepSeekDefaults.SYSTEM_PROMPT
-                    ),
-                    MessageDto(
-                        role = DeepSeekDefaults.ROLE_USER,
-                        content = message
-                    )
-                )
+                messages = messages.map { MessageDto(role = it.role, content = it.content) },
+                maxTokens = maxTokens
             )
             val response: ChatResponse = httpClient.post("$baseUrl$CHAT_ENDPOINT") {
                 contentType(ContentType.Application.Json)
