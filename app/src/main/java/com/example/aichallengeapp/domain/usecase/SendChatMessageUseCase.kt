@@ -8,8 +8,9 @@ class SendChatMessageUseCase(
 ) {
     suspend operator fun invoke(
         messages: List<ChatMessage>,
-        maxTokens: Int?
+        maxTokens: Int?,
+        temperature: Float?
     ): Result<String> {
-        return chatRepository.sendMessage(messages, maxTokens)
+        return chatRepository.sendMessage(messages, maxTokens, temperature)
     }
 }

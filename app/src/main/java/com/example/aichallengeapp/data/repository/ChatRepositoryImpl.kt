@@ -25,12 +25,14 @@ class ChatRepositoryImpl(
 
     override suspend fun sendMessage(
         messages: List<ChatMessage>,
-        maxTokens: Int?
+        maxTokens: Int?,
+        temperature: Float?
     ): Result<String> {
         return runCatching {
             val request = ChatRequest(
                 messages = messages.map { MessageDto(role = it.role, content = it.content) },
-                maxTokens = maxTokens
+                maxTokens = maxTokens,
+                temperature = temperature
             )
             val response: ChatResponse = httpClient.post("$baseUrl$CHAT_ENDPOINT") {
                 contentType(ContentType.Application.Json)

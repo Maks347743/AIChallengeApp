@@ -12,11 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.example.aichallengeapp.presentation.HomeScreen
+import com.example.aichallengeapp.presentation.SettingsScreen
 import com.example.aichallengeapp.ui.theme.AIChallengeAppTheme
 import kotlinx.serialization.Serializable
 
 @Serializable
 data object HomeRoute
+
+@Serializable
+data object SettingsRoute
 
 class MainActivity : ComponentActivity() {
 
@@ -40,7 +44,16 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         onBack = { backStack.removeLastOrNull() },
         entryProvider = entryProvider {
             entry<HomeRoute> {
-                HomeScreen(modifier = modifier)
+                HomeScreen(
+                    onNavigateToSettings = { backStack.add(SettingsRoute) },
+                    modifier = modifier
+                )
+            }
+            entry<SettingsRoute> {
+                SettingsScreen(
+                    onNavigateBack = { backStack.removeLastOrNull() },
+                    modifier = modifier
+                )
             }
         }
     )

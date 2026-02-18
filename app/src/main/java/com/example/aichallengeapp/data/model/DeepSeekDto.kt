@@ -8,7 +8,8 @@ data class ChatRequest(
     val model: String = DeepSeekDefaults.MODEL_CHAT,
     val messages: List<MessageDto>,
     @SerialName("max_tokens")
-    val maxTokens: Int? = null
+    val maxTokens: Int? = null,
+    val temperature: Float? = null
 )
 
 @Serializable
