@@ -4,10 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -36,9 +38,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.aichallengeapp.R
 import com.example.aichallengeapp.domain.model.ChatMessage
 import org.koin.androidx.compose.koinViewModel
 
@@ -55,7 +58,7 @@ fun HomeScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("AI Chat") },
+                title = { Text(stringResource(R.string.title_chat)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -67,13 +70,13 @@ fun HomeScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.DeleteSweep,
-                            contentDescription = "New chat"
+                            contentDescription = stringResource(R.string.cd_new_chat)
                         )
                     }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings"
+                            contentDescription = stringResource(R.string.cd_settings)
                         )
                     }
                 }
@@ -100,9 +103,9 @@ fun HomeScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
+                    .padding(horizontal = dimensionResource(R.dimen.chat_horizontal_padding)),
+                verticalArrangement = Arrangement.spacedBy(dimensionResource(R.dimen.chat_vertical_spacing)),
+                contentPadding = PaddingValues(vertical = dimensionResource(R.dimen.chat_vertical_spacing))
             ) {
                 items(state.messages) { message ->
                     ChatBubble(message = message)
@@ -113,10 +116,12 @@ fun HomeScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(8.dp),
+                                .padding(dimensionResource(R.dimen.chat_horizontal_padding)),
                             contentAlignment = Alignment.CenterStart
                         ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(dimensionResource(R.dimen.progress_indicator_size))
+                            )
                         }
                     }
                 }
@@ -127,21 +132,27 @@ fun HomeScreen(
                     text = state.error!!,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(
+                        horizontal = dimensionResource(R.dimen.error_padding_horizontal),
+                        vertical = dimensionResource(R.dimen.error_padding_vertical)
+                    )
                 )
             }
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                    .padding(
+                        horizontal = dimensionResource(R.dimen.chat_horizontal_padding),
+                        vertical = dimensionResource(R.dimen.chat_horizontal_padding)
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
                     value = state.inputText,
                     onValueChange = { viewModel.onIntent(HomeIntent.UpdateInput(it)) },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message...") },
+                    placeholder = { Text(stringResource(R.string.hint_message_input)) },
                     maxLines = 4
                 )
                 IconButton(
@@ -150,7 +161,7 @@ fun HomeScreen(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send"
+                        contentDescription = stringResource(R.string.cd_send)
                     )
                 }
             }
@@ -172,6 +183,8 @@ private fun ChatBubble(message: ChatMessage) {
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val cornerLarge = dimensionResource(R.dimen.chat_bubble_corner_large)
+    val cornerSmall = dimensionResource(R.dimen.chat_bubble_corner_small)
 
     Box(
         modifier = Modifier.fillMaxWidth(),
@@ -179,17 +192,17 @@ private fun ChatBubble(message: ChatMessage) {
     ) {
         Box(
             modifier = Modifier
-                .widthIn(max = 300.dp)
+                .widthIn(max = dimensionResource(R.dimen.chat_bubble_max_width))
                 .clip(
                     RoundedCornerShape(
-                        topStart = 16.dp,
-                        topEnd = 16.dp,
-                        bottomStart = if (isUser) 16.dp else 4.dp,
-                        bottomEnd = if (isUser) 4.dp else 16.dp
+                        topStart = cornerLarge,
+                        topEnd = cornerLarge,
+                        bottomStart = if (isUser) cornerLarge else cornerSmall,
+                        bottomEnd = if (isUser) cornerSmall else cornerLarge
                     )
                 )
                 .background(bubbleColor)
-                .padding(12.dp)
+                .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
         ) {
             SelectionContainer {
                 Text(

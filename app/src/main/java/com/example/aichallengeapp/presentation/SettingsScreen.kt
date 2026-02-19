@@ -27,11 +27,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.aichallengeapp.R
 import org.koin.androidx.compose.koinViewModel
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,7 +49,7 @@ fun SettingsScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Настройки") },
+                title = { Text(stringResource(R.string.title_settings)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -56,7 +58,7 @@ fun SettingsScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Назад"
+                            contentDescription = stringResource(R.string.cd_back)
                         )
                     }
                 }
@@ -69,13 +71,16 @@ fun SettingsScreen(
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(
+                    horizontal = dimensionResource(R.dimen.settings_content_padding_horizontal),
+                    vertical = dimensionResource(R.dimen.settings_content_padding_vertical)
+                )
         ) {
             Text(
-                text = "Системный промпт",
+                text = stringResource(R.string.label_system_prompt),
                 style = MaterialTheme.typography.labelMedium
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_label_spacing)))
             OutlinedTextField(
                 value = settings.systemPrompt,
                 onValueChange = { viewModel.onIntent(HomeIntent.UpdateSystemPrompt(it)) },
@@ -84,30 +89,30 @@ fun SettingsScreen(
                 maxLines = 8
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_section_spacing)))
 
             Text(
-                text = "Max Tokens",
+                text = stringResource(R.string.label_max_tokens),
                 style = MaterialTheme.typography.labelMedium
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_label_spacing)))
             OutlinedTextField(
                 value = settings.maxTokensText,
                 onValueChange = { viewModel.onIntent(HomeIntent.UpdateMaxTokens(it)) },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("По умолчанию (без ограничения)") },
+                placeholder = { Text(stringResource(R.string.hint_max_tokens)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_section_spacing)))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Температура",
+                    text = stringResource(R.string.label_temperature),
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.weight(1f)
                 )
@@ -116,24 +121,24 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_label_spacing)))
             Slider(
                 value = settings.temperature,
                 onValueChange = { viewModel.onIntent(HomeIntent.UpdateTemperature(it)) },
-                valueRange = 0f..1f,
+                valueRange = 0f..2f,
                 steps = 19,
                 modifier = Modifier.fillMaxWidth()
             )
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "0.0",
+                    text = stringResource(R.string.temperature_min),
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "1.0",
+                    text = stringResource(R.string.temperature_max),
                     style = MaterialTheme.typography.labelSmall,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                    textAlign = TextAlign.End,
                     modifier = Modifier.weight(1f)
                 )
             }

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Chat screen -->
+    <dimen name="chat_horizontal_padding">8dp</dimen>
+    <dimen name="chat_vertical_spacing">8dp</dimen>
+    <dimen name="progress_indicator_size">24dp</dimen>
+    <dimen name="error_padding_horizontal">16dp</dimen>
+    <dimen name="error_padding_vertical">4dp</dimen>
+
+    <!-- Chat bubble -->
+    <dimen name="chat_bubble_max_width">300dp</dimen>
+    <dimen name="chat_bubble_corner_large">16dp</dimen>
+    <dimen name="chat_bubble_corner_small">4dp</dimen>
+    <dimen name="chat_bubble_content_padding">12dp</dimen>
+
+    <!-- Settings screen -->
+    <dimen name="settings_content_padding_horizontal">16dp</dimen>
+    <dimen name="settings_content_padding_vertical">12dp</dimen>
+    <dimen name="settings_label_spacing">4dp</dimen>
+    <dimen name="settings_section_spacing">20dp</dimen>
+</resources>
