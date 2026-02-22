@@ -1,5 +1,6 @@
 package com.example.aichallengeapp.presentation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -76,6 +78,31 @@ fun SettingsScreen(
                     vertical = dimensionResource(R.dimen.settings_content_padding_vertical)
                 )
         ) {
+            Text(
+                text = stringResource(R.string.label_model),
+                style = MaterialTheme.typography.labelMedium
+            )
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_label_spacing)))
+            DeepSeekModel.entries.forEach { model ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.onIntent(HomeIntent.UpdateModel(model)) },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = settings.model == model,
+                        onClick = { viewModel.onIntent(HomeIntent.UpdateModel(model)) }
+                    )
+                    Text(
+                        text = model.displayName,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_section_spacing)))
+
             Text(
                 text = stringResource(R.string.label_system_prompt),
                 style = MaterialTheme.typography.labelMedium

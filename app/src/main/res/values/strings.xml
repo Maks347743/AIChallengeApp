@@ -18,4 +18,5 @@
     <string name="label_temperature">Температура</string>
     <string name="temperature_min">0.0</string>
     <string name="temperature_max">2.0</string>
+    <string name="label_model">Модель</string>
 </resources>

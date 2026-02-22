@@ -32,11 +32,12 @@ class HomeViewModel(
             is HomeIntent.SendMessage -> sendMessage()
             is HomeIntent.UpdateInput -> _state.update { it.copy(inputText = intent.text) }
             is HomeIntent.ClearChat -> _state.update {
-                it.copy(messages = emptyList(), error = null)
+                it.copy(messages = emptyList(), error = null, lastMetrics = null)
             }
             is HomeIntent.UpdateMaxTokens -> updateSettings { copy(maxTokensText = intent.value) }
             is HomeIntent.UpdateSystemPrompt -> updateSettings { copy(systemPrompt = intent.text) }
             is HomeIntent.UpdateTemperature -> updateSettings { copy(temperature = intent.value) }
+            is HomeIntent.UpdateModel -> updateSettings { copy(model = intent.model) }
         }
     }
 
@@ -62,16 +63,17 @@ class HomeViewModel(
                 addAll(_state.value.messages)
             }
 
-            sendChatMessageUseCase(fullHistory, settings.maxTokens, settings.temperature)
-                .onSuccess { responseText ->
+            sendChatMessageUseCase(fullHistory, settings.maxTokens, settings.temperature, settings.model.id)
+                .onSuccess { result ->
                     val assistantMessage = ChatMessage(
                         role = ChatMessage.ROLE_ASSISTANT,
-                        content = responseText
+                        content = result.message
                     )
                     _state.update {
                         it.copy(
                             messages = it.messages + assistantMessage,
-                            isLoading = false
+                            isLoading = false,
+                            lastMetrics = result.metrics
                         )
                     }
                 }

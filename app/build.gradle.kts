@@ -25,6 +25,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "DEEPSEEK_BASE_URL", "\"https://api.deepseek.com\"")
+        // TEMPORARY: HuggingFace — remove when deleting HF support
+        buildConfigField("String", "HF_BASE_URL", "\"https://router.huggingface.co/v1\"")
     }
 
     buildTypes {
@@ -33,6 +35,12 @@ android {
                 "String",
                 "DEEPSEEK_API_KEY",
                 "\"${localProperties.getProperty("DEEPSEEK_API_KEY", "")}\""
+            )
+            // TEMPORARY: HuggingFace — remove when deleting HF support
+            buildConfigField(
+                "String",
+                "HF_API_KEY",
+                "\"${localProperties.getProperty("HUGGINGFACE_API_KEY", "")}\""
             )
         }
         release {
@@ -44,6 +52,12 @@ android {
             buildConfigField(
                 "String",
                 "DEEPSEEK_API_KEY",
+                "\"\""
+            )
+            // TEMPORARY: HuggingFace — remove when deleting HF support
+            buildConfigField(
+                "String",
+                "HF_API_KEY",
                 "\"\""
             )
         }

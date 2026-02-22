@@ -19,9 +19,17 @@ data class MessageDto(
 )
 
 @Serializable
+data class UsageDto(
+    @SerialName("prompt_tokens") val promptTokens: Int = 0,
+    @SerialName("completion_tokens") val completionTokens: Int = 0,
+    @SerialName("total_tokens") val totalTokens: Int = 0
+)
+
+@Serializable
 data class ChatResponse(
     val id: String,
-    val choices: List<ChoiceDto>
+    val choices: List<ChoiceDto>,
+    val usage: UsageDto? = null
 )
 
 @Serializable
@@ -34,8 +42,4 @@ data class ChoiceDto(
 
 object DeepSeekDefaults {
     const val MODEL_CHAT = "deepseek-chat"
-    const val ROLE_SYSTEM = "system"
-    const val ROLE_USER = "user"
-    const val ROLE_ASSISTANT = "assistant"
-    const val SYSTEM_PROMPT = "You are a helpful assistant"
 }

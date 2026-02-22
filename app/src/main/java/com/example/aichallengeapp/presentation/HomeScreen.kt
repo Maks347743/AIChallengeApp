@@ -1,6 +1,8 @@
 package com.example.aichallengeapp.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -43,6 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aichallengeapp.R
 import com.example.aichallengeapp.domain.model.ChatMessage
+import com.example.aichallengeapp.domain.model.ResponseMetrics
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -127,6 +131,10 @@ fun HomeScreen(
                 }
             }
 
+            state.lastMetrics?.let {
+                MetricsBar(metrics = it)
+            }
+
             if (state.error != null) {
                 Text(
                     text = state.error!!,
@@ -166,6 +174,49 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MetricsBar(metrics: ResponseMetrics) {
+    val timeLabel = if (metrics.responseTimeMs < 1000) {
+        "${metrics.responseTimeMs} ms"
+    } else {
+        "${"%.1f".format(metrics.responseTimeMs / 1000.0)} s"
+    }
+    val costLabel = if (metrics.costUsd == 0.0) "Free" else "$${"%.6f".format(metrics.costUsd)}"
+
+    val borderColor = if (isSystemInDarkTheme()) Color.White else Color.Black
+    Column {
+        androidx.compose.material3.HorizontalDivider(color = borderColor)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.secondaryContainer)
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            MetricItem(label = "Time", value = timeLabel)
+            MetricItem(label = "Tokens", value = "${metrics.totalTokens} (${metrics.promptTokens}+${metrics.completionTokens})")
+            MetricItem(label = "Cost", value = costLabel)
+        }
+        androidx.compose.material3.HorizontalDivider(color = borderColor)
+    }
+}
+
+@Composable
+private fun MetricItem(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer
+        )
     }
 }
 
