@@ -4,10 +4,7 @@ import android.content.Context
 import com.example.aichallengeapp.BuildConfig
 import com.example.aichallengeapp.data.SettingsStorage
 import com.example.aichallengeapp.data.repository.ChatRepositoryImpl
-import com.example.aichallengeapp.data.repository.HuggingFaceChatRepositoryImpl
-import com.example.aichallengeapp.data.repository.HuggingFaceRoutingChatRepository
 import com.example.aichallengeapp.domain.repository.ChatRepository
-import org.koin.core.qualifier.named
 import com.example.aichallengeapp.domain.usecase.SendChatMessageUseCase
 import com.example.aichallengeapp.presentation.HomeViewModel
 import io.ktor.client.HttpClient
@@ -59,26 +56,11 @@ val appModule = module {
         SettingsStorage(get<Context>().getSharedPreferences("chat_settings", Context.MODE_PRIVATE))
     }
 
-    single<ChatRepository>(named("deepseek")) {
+    single<ChatRepository> {
         ChatRepositoryImpl(
             httpClient = get(),
             apiKey = BuildConfig.DEEPSEEK_API_KEY,
             baseUrl = BuildConfig.DEEPSEEK_BASE_URL
-        )
-    }
-
-    // TEMPORARY: HuggingFace — remove the three blocks below when deleting HF support
-    single<ChatRepository>(named("huggingface")) {
-        HuggingFaceChatRepositoryImpl(
-            httpClient = get(),
-            apiKey = BuildConfig.HF_API_KEY,
-            baseUrl = BuildConfig.HF_BASE_URL
-        )
-    }
-    single<ChatRepository> {
-        HuggingFaceRoutingChatRepository(
-            deepSeekRepository = get(named("deepseek")),
-            huggingFaceRepository = get(named("huggingface"))
         )
     }
 

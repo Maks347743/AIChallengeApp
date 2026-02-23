@@ -4,7 +4,6 @@ import com.example.aichallengeapp.domain.model.ChatMessage
 import com.example.aichallengeapp.domain.model.ResponseMetrics
 
 enum class DeepSeekModel(val id: String, val displayName: String) {
-    DEEPSEEK_R1_DISTILL_QWEN_7B("deepseek-r1-distill-qwen-7b", "R1 Distill Qwen 7B (HF)"),
     DEEPSEEK_CHAT("deepseek-chat", "DeepSeek Chat"),
     DEEPSEEK_REASONER("deepseek-reasoner", "DeepSeek Reasoner")
 }
