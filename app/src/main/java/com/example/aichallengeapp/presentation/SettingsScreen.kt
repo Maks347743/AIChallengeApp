@@ -1,5 +1,6 @@
 package com.example.aichallengeapp.presentation
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -33,10 +35,12 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aichallengeapp.R
 import org.koin.androidx.compose.koinViewModel
 
+@SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -78,96 +82,116 @@ fun SettingsScreen(
                     vertical = dimensionResource(R.dimen.settings_content_padding_vertical)
                 )
         ) {
-            Text(
-                text = stringResource(R.string.label_model),
-                style = MaterialTheme.typography.labelMedium
-            )
-            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_label_spacing)))
-            DeepSeekModel.entries.forEach { model ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { viewModel.onIntent(HomeIntent.UpdateModel(model)) },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = settings.model == model,
-                        onClick = { viewModel.onIntent(HomeIntent.UpdateModel(model)) }
-                    )
+            // Model section
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = model.displayName,
-                        style = MaterialTheme.typography.bodyMedium
+                        text = stringResource(R.string.label_model),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    DeepSeekModel.entries.forEach { model ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.onIntent(HomeIntent.UpdateModel(model)) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = settings.model == model,
+                                onClick = { viewModel.onIntent(HomeIntent.UpdateModel(model)) }
+                            )
+                            Text(
+                                text = model.displayName,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // System Prompt section
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = stringResource(R.string.label_system_prompt),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = settings.systemPrompt,
+                        onValueChange = { viewModel.onIntent(HomeIntent.UpdateSystemPrompt(it)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 4,
+                        maxLines = 8
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_section_spacing)))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = stringResource(R.string.label_system_prompt),
-                style = MaterialTheme.typography.labelMedium
-            )
-            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_label_spacing)))
-            OutlinedTextField(
-                value = settings.systemPrompt,
-                onValueChange = { viewModel.onIntent(HomeIntent.UpdateSystemPrompt(it)) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 4,
-                maxLines = 8
-            )
-
-            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_section_spacing)))
-
-            Text(
-                text = stringResource(R.string.label_max_tokens),
-                style = MaterialTheme.typography.labelMedium
-            )
-            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_label_spacing)))
-            OutlinedTextField(
-                value = settings.maxTokensText,
-                onValueChange = { viewModel.onIntent(HomeIntent.UpdateMaxTokens(it)) },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(stringResource(R.string.hint_max_tokens)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_section_spacing)))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.label_temperature),
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = String.format("%.2f", settings.temperature),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+            // Max Tokens section
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = stringResource(R.string.label_max_tokens),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = settings.maxTokensText,
+                        onValueChange = { viewModel.onIntent(HomeIntent.UpdateMaxTokens(it)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(stringResource(R.string.hint_max_tokens)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_label_spacing)))
-            Slider(
-                value = settings.temperature,
-                onValueChange = { viewModel.onIntent(HomeIntent.UpdateTemperature(it)) },
-                valueRange = 0f..2f,
-                steps = 19,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = stringResource(R.string.temperature_min),
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = stringResource(R.string.temperature_max),
-                    style = MaterialTheme.typography.labelSmall,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.weight(1f)
-                )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Temperature section
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.label_temperature),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = String.format("%.2f", settings.temperature),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Slider(
+                        value = settings.temperature,
+                        onValueChange = { viewModel.onIntent(HomeIntent.UpdateTemperature(it)) },
+                        valueRange = 0f..2f,
+                        steps = 19,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(R.string.temperature_min),
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = stringResource(R.string.temperature_max),
+                            style = MaterialTheme.typography.labelSmall,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
         }
     }

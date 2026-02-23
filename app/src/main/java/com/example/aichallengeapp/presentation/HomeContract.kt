@@ -16,6 +16,7 @@ sealed interface HomeIntent {
     data class UpdateSystemPrompt(val text: String) : HomeIntent
     data class UpdateTemperature(val value: Float) : HomeIntent
     data class UpdateModel(val model: DeepSeekModel) : HomeIntent
+    data object ToggleMetrics : HomeIntent
 }
 
 data class ChatSettings(
@@ -34,5 +35,6 @@ data class HomeState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val settings: ChatSettings = ChatSettings(),
-    val lastMetrics: ResponseMetrics? = null
+    val lastMetrics: ResponseMetrics? = null,
+    val showMetrics: Boolean = false
 )

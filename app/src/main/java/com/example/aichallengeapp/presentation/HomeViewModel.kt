@@ -32,8 +32,9 @@ class HomeViewModel(
             is HomeIntent.SendMessage -> sendMessage()
             is HomeIntent.UpdateInput -> _state.update { it.copy(inputText = intent.text) }
             is HomeIntent.ClearChat -> _state.update {
-                it.copy(messages = emptyList(), error = null, lastMetrics = null)
+                it.copy(messages = emptyList(), error = null, lastMetrics = null, showMetrics = false)
             }
+            is HomeIntent.ToggleMetrics -> _state.update { it.copy(showMetrics = !it.showMetrics) }
             is HomeIntent.UpdateMaxTokens -> updateSettings { copy(maxTokensText = intent.value) }
             is HomeIntent.UpdateSystemPrompt -> updateSettings { copy(systemPrompt = intent.text) }
             is HomeIntent.UpdateTemperature -> updateSettings { copy(temperature = intent.value) }
