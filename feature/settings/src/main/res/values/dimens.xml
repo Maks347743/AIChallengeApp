@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="settings_content_padding_horizontal">16dp</dimen>
+    <dimen name="settings_content_padding_vertical">12dp</dimen>
+    <dimen name="settings_label_spacing">4dp</dimen>
+    <dimen name="settings_section_spacing">24dp</dimen>
+</resources>

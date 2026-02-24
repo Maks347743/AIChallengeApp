@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title_chat_list">Chats</string>
+    <string name="empty_chat_list">No chats yet. Tap + to start</string>
+    <string name="cd_new_chat">New chat</string>
+    <string name="cd_settings">Settings</string>
+</resources>

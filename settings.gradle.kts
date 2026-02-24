@@ -25,3 +25,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "AIChallengeApp"
 include(":app")
+include(":core:database")
+include(":feature:settings")
+include(":feature:chat")
+include(":feature:chat-list")

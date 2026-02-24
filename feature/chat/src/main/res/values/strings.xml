@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title_chat">AI Chat</string>
+    <string name="cd_new_chat">New chat</string>
+    <string name="hint_message_input">Type a message…</string>
+    <string name="cd_send">Send</string>
+    <string name="cd_toggle_metrics">Toggle metrics</string>
+    <string name="cd_back">Назад</string>
+</resources>

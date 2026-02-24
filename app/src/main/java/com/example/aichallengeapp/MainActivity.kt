@@ -16,20 +16,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
-import com.example.aichallengeapp.presentation.ChatListScreen
-import com.example.aichallengeapp.presentation.ChatScreen
-import com.example.aichallengeapp.presentation.SettingsScreen
+import com.example.aichallengeapp.feature.chat.ChatRoute
+import com.example.aichallengeapp.feature.chat.presentation.ChatScreen
+import com.example.aichallengeapp.feature.chatlist.ChatListRoute
+import com.example.aichallengeapp.feature.chatlist.presentation.ChatListScreen
+import com.example.aichallengeapp.feature.settings.SettingsRoute
+import com.example.aichallengeapp.feature.settings.presentation.SettingsScreen
 import com.example.aichallengeapp.ui.theme.AIChallengeAppTheme
-import kotlinx.serialization.Serializable
-
-@Serializable
-data object ChatListRoute
-
-@Serializable
-data class ChatRoute(val chatId: String)
-
-@Serializable
-data object SettingsRoute
 
 class MainActivity : ComponentActivity() {
 

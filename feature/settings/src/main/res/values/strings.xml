@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title_settings">Настройки</string>
+    <string name="cd_back">Назад</string>
+    <string name="label_system_prompt">Системный промпт</string>
+    <string name="label_max_tokens">Max Tokens</string>
+    <string name="hint_max_tokens">По умолчанию (без ограничения)</string>
+    <string name="label_temperature">Температура</string>
+    <string name="temperature_min">0.0</string>
+    <string name="temperature_max">2.0</string>
+    <string name="label_model">Модель</string>
+</resources>

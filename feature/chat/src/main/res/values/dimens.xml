@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="chat_horizontal_padding">12dp</dimen>
+    <dimen name="chat_vertical_spacing">10dp</dimen>
+    <dimen name="progress_indicator_size">24dp</dimen>
+    <dimen name="error_padding_horizontal">16dp</dimen>
+    <dimen name="error_padding_vertical">4dp</dimen>
+    <dimen name="chat_bubble_max_width">280dp</dimen>
+    <dimen name="chat_bubble_corner_large">20dp</dimen>
+    <dimen name="chat_bubble_corner_small">6dp</dimen>
+    <dimen name="chat_bubble_content_padding">14dp</dimen>
+</resources>

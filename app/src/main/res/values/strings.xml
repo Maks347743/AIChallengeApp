@@ -1,27 +1,3 @@
 <resources>
     <string name="app_name">AI Challenge App</string>
-    <string name="check_connection">Проверить подключение</string>
-
-    <!-- ChatListScreen -->
-    <string name="title_chat_list">Chats</string>
-    <string name="empty_chat_list">No chats yet. Tap + to start</string>
-
-    <!-- ChatScreen -->
-    <string name="title_chat">AI Chat</string>
-    <string name="cd_new_chat">New chat</string>
-    <string name="cd_settings">Settings</string>
-    <string name="hint_message_input">Type a message…</string>
-    <string name="cd_send">Send</string>
-    <string name="cd_toggle_metrics">Toggle metrics</string>
-
-    <!-- SettingsScreen -->
-    <string name="title_settings">Настройки</string>
-    <string name="cd_back">Назад</string>
-    <string name="label_system_prompt">Системный промпт</string>
-    <string name="label_max_tokens">Max Tokens</string>
-    <string name="hint_max_tokens">По умолчанию (без ограничения)</string>
-    <string name="label_temperature">Температура</string>
-    <string name="temperature_min">0.0</string>
-    <string name="temperature_max">2.0</string>
-    <string name="label_model">Модель</string>
 </resources>
