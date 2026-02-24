@@ -1,6 +1,14 @@
 package com.example.aichallengeapp.presentation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,24 +21,16 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.ui.unit.dp
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -51,28 +51,30 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.graphicsLayer
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aichallengeapp.R
 import com.example.aichallengeapp.domain.model.ChatMessage
 import com.example.aichallengeapp.domain.model.ResponseMetrics
-import androidx.compose.foundation.isSystemInDarkTheme
 import com.example.aichallengeapp.ui.theme.SendBlue
 import com.example.aichallengeapp.ui.theme.SendBlueDark
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
-    onNavigateToSettings: () -> Unit,
+fun ChatScreen(
+    chatId: String,
+    onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: HomeViewModel = koinViewModel()
+    viewModel: ChatViewModel = koinViewModel(key = chatId) { parametersOf(chatId) }
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var clearAnimating by remember { mutableStateOf(false) }
@@ -86,9 +88,17 @@ fun HomeScreen(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.cd_back)
+                        )
+                    }
+                },
                 actions = {
                     IconButton(
-                        onClick = { viewModel.onIntent(HomeIntent.ToggleMetrics) },
+                        onClick = { viewModel.onIntent(ChatIntent.ToggleMetrics) },
                         enabled = state.lastMetrics != null
                     ) {
                         Icon(
@@ -108,12 +118,6 @@ fun HomeScreen(
                         Icon(
                             imageVector = Icons.Default.DeleteSweep,
                             contentDescription = stringResource(R.string.cd_new_chat)
-                        )
-                    }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = stringResource(R.string.cd_settings)
                         )
                     }
                 }
@@ -137,7 +141,7 @@ fun HomeScreen(
                     launch { clearAlpha.animateTo(0f, tween(250)) }
                     launch { clearScale.animateTo(0.95f, tween(250)) }
                     delay(280L)
-                    viewModel.onIntent(HomeIntent.ClearChat)
+                    viewModel.onIntent(ChatIntent.ClearChat)
                     clearAlpha.snapTo(1f)
                     clearScale.snapTo(1f)
                     clearAnimating = false
@@ -224,13 +228,13 @@ fun HomeScreen(
                 ) {
                     OutlinedTextField(
                         value = state.inputText,
-                        onValueChange = { viewModel.onIntent(HomeIntent.UpdateInput(it)) },
+                        onValueChange = { viewModel.onIntent(ChatIntent.UpdateInput(it)) },
                         modifier = Modifier.weight(1f),
                         placeholder = { Text(stringResource(R.string.hint_message_input)) },
                         maxLines = 4
                     )
                     IconButton(
-                        onClick = { viewModel.onIntent(HomeIntent.SendMessage) },
+                        onClick = { viewModel.onIntent(ChatIntent.SendMessage) },
                         enabled = state.inputText.isNotBlank() && !state.isLoading,
                         modifier = Modifier.padding(start = dimensionResource(R.dimen.chat_horizontal_padding))
                     ) {

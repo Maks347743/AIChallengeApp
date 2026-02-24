@@ -2,7 +2,11 @@
     <string name="app_name">AI Challenge App</string>
     <string name="check_connection">Проверить подключение</string>
 
-    <!-- HomeScreen -->
+    <!-- ChatListScreen -->
+    <string name="title_chat_list">Chats</string>
+    <string name="empty_chat_list">No chats yet. Tap + to start</string>
+
+    <!-- ChatScreen -->
     <string name="title_chat">AI Chat</string>
     <string name="cd_new_chat">New chat</string>
     <string name="cd_settings">Settings</string>

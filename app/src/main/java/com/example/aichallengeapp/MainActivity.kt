@@ -16,13 +16,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
-import com.example.aichallengeapp.presentation.HomeScreen
+import com.example.aichallengeapp.presentation.ChatListScreen
+import com.example.aichallengeapp.presentation.ChatScreen
 import com.example.aichallengeapp.presentation.SettingsScreen
 import com.example.aichallengeapp.ui.theme.AIChallengeAppTheme
 import kotlinx.serialization.Serializable
 
 @Serializable
-data object HomeRoute
+data object ChatListRoute
+
+@Serializable
+data class ChatRoute(val chatId: String)
 
 @Serializable
 data object SettingsRoute
@@ -42,7 +46,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation(modifier: Modifier = Modifier) {
-    val backStack = remember { mutableStateListOf<Any>(HomeRoute) }
+    val backStack = remember { mutableStateListOf<Any>(ChatListRoute) }
 
     NavDisplay(
         backStack = backStack,
@@ -56,9 +60,17 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             slideOutHorizontally(tween(350, easing = FastOutSlowInEasing)) { it }
         },
         entryProvider = entryProvider {
-            entry<HomeRoute> {
-                HomeScreen(
+            entry<ChatListRoute> {
+                ChatListScreen(
+                    onNavigateToChat = { chatId -> backStack.add(ChatRoute(chatId)) },
                     onNavigateToSettings = { backStack.add(SettingsRoute) },
+                    modifier = modifier
+                )
+            }
+            entry<ChatRoute> { entry ->
+                ChatScreen(
+                    chatId = entry.chatId,
+                    onNavigateBack = { backStack.removeLastOrNull() },
                     modifier = modifier
                 )
             }

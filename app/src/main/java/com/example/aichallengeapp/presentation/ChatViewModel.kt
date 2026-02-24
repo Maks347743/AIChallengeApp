@@ -2,8 +2,10 @@ package com.example.aichallengeapp.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.aichallengeapp.domain.model.ChatMessage
 import com.example.aichallengeapp.data.SettingsStorage
+import com.example.aichallengeapp.domain.model.ChatMessage
+import com.example.aichallengeapp.domain.model.ChatSession
+import com.example.aichallengeapp.domain.repository.ChatSessionRepository
 import com.example.aichallengeapp.domain.usecase.SendChatMessageUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,34 +13,36 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class HomeViewModel(
+class ChatViewModel(
+    private val chatId: String,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
-    private val settingsStorage: SettingsStorage
+    private val settingsStorage: SettingsStorage,
+    private val sessionRepository: ChatSessionRepository
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(HomeState(settings = settingsStorage.load()))
-    val state: StateFlow<HomeState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(ChatState())
+    val state: StateFlow<ChatState> = _state.asStateFlow()
 
-    private fun updateSettings(block: ChatSettings.() -> ChatSettings) {
-        _state.update {
-            val newSettings = it.settings.block()
-            settingsStorage.save(newSettings)
-            it.copy(settings = newSettings)
+    init {
+        viewModelScope.launch {
+            val session = sessionRepository.getSession(chatId)
+            if (session != null) {
+                _state.update { it.copy(messages = session.messages) }
+            }
         }
     }
 
-    fun onIntent(intent: HomeIntent) {
+    fun onIntent(intent: ChatIntent) {
         when (intent) {
-            is HomeIntent.SendMessage -> sendMessage()
-            is HomeIntent.UpdateInput -> _state.update { it.copy(inputText = intent.text) }
-            is HomeIntent.ClearChat -> _state.update {
-                it.copy(messages = emptyList(), error = null, lastMetrics = null, showMetrics = false)
+            is ChatIntent.SendMessage -> sendMessage()
+            is ChatIntent.UpdateInput -> _state.update { it.copy(inputText = intent.text) }
+            is ChatIntent.ClearChat -> {
+                _state.update {
+                    it.copy(messages = emptyList(), error = null, lastMetrics = null, showMetrics = false)
+                }
+                persistSession(emptyList())
             }
-            is HomeIntent.ToggleMetrics -> _state.update { it.copy(showMetrics = !it.showMetrics) }
-            is HomeIntent.UpdateMaxTokens -> updateSettings { copy(maxTokensText = intent.value) }
-            is HomeIntent.UpdateSystemPrompt -> updateSettings { copy(systemPrompt = intent.text) }
-            is HomeIntent.UpdateTemperature -> updateSettings { copy(temperature = intent.value) }
-            is HomeIntent.UpdateModel -> updateSettings { copy(model = intent.model) }
+            is ChatIntent.ToggleMetrics -> _state.update { it.copy(showMetrics = !it.showMetrics) }
         }
     }
 
@@ -46,6 +50,7 @@ class HomeViewModel(
         val text = _state.value.inputText.trim()
         if (text.isEmpty() || _state.value.isLoading) return
 
+        val settings = settingsStorage.load()
         val userMessage = ChatMessage(role = ChatMessage.ROLE_USER, content = text)
 
         _state.update {
@@ -58,7 +63,6 @@ class HomeViewModel(
         }
 
         viewModelScope.launch {
-            val settings = _state.value.settings
             val fullHistory = buildList {
                 add(ChatMessage(role = "system", content = settings.systemPrompt))
                 addAll(_state.value.messages)
@@ -77,6 +81,7 @@ class HomeViewModel(
                             lastMetrics = result.metrics
                         )
                     }
+                    persistSession(_state.value.messages)
                 }
                 .onFailure { throwable ->
                     _state.update {
@@ -86,6 +91,19 @@ class HomeViewModel(
                         )
                     }
                 }
+        }
+    }
+
+    private fun persistSession(messages: List<ChatMessage>) {
+        viewModelScope.launch {
+            if (messages.isEmpty()) {
+                sessionRepository.deleteSession(chatId)
+            } else {
+                val existing = sessionRepository.getSession(chatId)
+                val session = existing?.copy(messages = messages, updatedAt = System.currentTimeMillis())
+                    ?: ChatSession(id = chatId, messages = messages)
+                sessionRepository.upsertSession(session)
+            }
         }
     }
 }

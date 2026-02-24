@@ -8,15 +8,11 @@ enum class DeepSeekModel(val id: String, val displayName: String) {
     DEEPSEEK_REASONER("deepseek-reasoner", "DeepSeek Reasoner")
 }
 
-sealed interface HomeIntent {
-    data object SendMessage : HomeIntent
-    data class UpdateInput(val text: String) : HomeIntent
-    data object ClearChat : HomeIntent
-    data class UpdateMaxTokens(val value: String) : HomeIntent
-    data class UpdateSystemPrompt(val text: String) : HomeIntent
-    data class UpdateTemperature(val value: Float) : HomeIntent
-    data class UpdateModel(val model: DeepSeekModel) : HomeIntent
-    data object ToggleMetrics : HomeIntent
+sealed interface ChatIntent {
+    data object SendMessage : ChatIntent
+    data class UpdateInput(val text: String) : ChatIntent
+    data object ClearChat : ChatIntent
+    data object ToggleMetrics : ChatIntent
 }
 
 data class ChatSettings(
@@ -29,12 +25,11 @@ data class ChatSettings(
         get() = maxTokensText.toIntOrNull()
 }
 
-data class HomeState(
+data class ChatState(
     val messages: List<ChatMessage> = emptyList(),
     val inputText: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
-    val settings: ChatSettings = ChatSettings(),
     val lastMetrics: ResponseMetrics? = null,
     val showMetrics: Boolean = false
 )

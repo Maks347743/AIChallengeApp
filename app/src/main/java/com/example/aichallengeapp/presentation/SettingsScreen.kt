@@ -46,7 +46,7 @@ import org.koin.androidx.compose.koinViewModel
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: HomeViewModel = koinViewModel()
+    viewModel: SettingsViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val settings = state.settings
@@ -94,12 +94,12 @@ fun SettingsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { viewModel.onIntent(HomeIntent.UpdateModel(model)) },
+                                .clickable { viewModel.onIntent(SettingsIntent.UpdateModel(model)) },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
                                 selected = settings.model == model,
-                                onClick = { viewModel.onIntent(HomeIntent.UpdateModel(model)) }
+                                onClick = { viewModel.onIntent(SettingsIntent.UpdateModel(model)) }
                             )
                             Text(
                                 text = model.displayName,
@@ -122,7 +122,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = settings.systemPrompt,
-                        onValueChange = { viewModel.onIntent(HomeIntent.UpdateSystemPrompt(it)) },
+                        onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSystemPrompt(it)) },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 4,
                         maxLines = 8
@@ -142,7 +142,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = settings.maxTokensText,
-                        onValueChange = { viewModel.onIntent(HomeIntent.UpdateMaxTokens(it)) },
+                        onValueChange = { viewModel.onIntent(SettingsIntent.UpdateMaxTokens(it)) },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text(stringResource(R.string.hint_max_tokens)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -173,7 +173,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Slider(
                         value = settings.temperature,
-                        onValueChange = { viewModel.onIntent(HomeIntent.UpdateTemperature(it)) },
+                        onValueChange = { viewModel.onIntent(SettingsIntent.UpdateTemperature(it)) },
                         valueRange = 0f..2f,
                         steps = 19,
                         modifier = Modifier.fillMaxWidth()

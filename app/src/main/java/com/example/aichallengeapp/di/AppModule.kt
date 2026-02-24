@@ -1,12 +1,18 @@
 package com.example.aichallengeapp.di
 
 import android.content.Context
+import androidx.room.Room
 import com.example.aichallengeapp.BuildConfig
 import com.example.aichallengeapp.data.SettingsStorage
+import com.example.aichallengeapp.data.db.AppDatabase
 import com.example.aichallengeapp.data.repository.ChatRepositoryImpl
+import com.example.aichallengeapp.data.repository.ChatSessionRepositoryImpl
 import com.example.aichallengeapp.domain.repository.ChatRepository
+import com.example.aichallengeapp.domain.repository.ChatSessionRepository
 import com.example.aichallengeapp.domain.usecase.SendChatMessageUseCase
-import com.example.aichallengeapp.presentation.HomeViewModel
+import com.example.aichallengeapp.presentation.ChatListViewModel
+import com.example.aichallengeapp.presentation.ChatViewModel
+import com.example.aichallengeapp.presentation.SettingsViewModel
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
@@ -51,6 +57,12 @@ val appModule = module {
         }
     }
 
+    // Room
+    single {
+        Room.databaseBuilder(get<Context>(), AppDatabase::class.java, "app_db").build()
+    }
+    single { get<AppDatabase>().chatSessionDao() }
+
     // Data
     single {
         SettingsStorage(get<Context>().getSharedPreferences("chat_settings", Context.MODE_PRIVATE))
@@ -64,9 +76,13 @@ val appModule = module {
         )
     }
 
+    single<ChatSessionRepository> { ChatSessionRepositoryImpl(get()) }
+
     // Domain
     factory { SendChatMessageUseCase(chatRepository = get()) }
 
     // Presentation
-    viewModel { HomeViewModel(sendChatMessageUseCase = get(), settingsStorage = get()) }
+    viewModel { ChatListViewModel(get()) }
+    viewModel { SettingsViewModel(get()) }
+    viewModel { params -> ChatViewModel(chatId = params.get(), get(), get(), get()) }
 }
