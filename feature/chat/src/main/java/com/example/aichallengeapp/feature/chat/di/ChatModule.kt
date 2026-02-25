@@ -24,9 +24,9 @@ val chatModule = module {
     single {
         HttpClient(OkHttp) {
             install(HttpTimeout) {
-                requestTimeoutMillis = 60_000
+                requestTimeoutMillis = 600_000
                 connectTimeoutMillis = 15_000
-                socketTimeoutMillis = 60_000
+                socketTimeoutMillis = 600_000
             }
             install(ContentNegotiation) {
                 json(Json {
@@ -57,5 +57,5 @@ val chatModule = module {
 
     factory { SendChatMessageUseCase(get()) }
 
-    viewModel { params -> ChatViewModel(params.get(), get(), get(), get()) }
+    viewModel { params -> ChatViewModel(params.get(), get(), get(), get(), get()) }
 }

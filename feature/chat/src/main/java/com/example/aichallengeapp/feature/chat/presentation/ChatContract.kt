@@ -1,7 +1,7 @@
 package com.example.aichallengeapp.feature.chat.presentation
 
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
-import com.example.aichallengeapp.core.database.domain.model.ResponseMetrics
+import com.example.aichallengeapp.core.database.domain.model.ChatMetrics
 
 sealed interface ChatIntent {
     data object SendMessage : ChatIntent
@@ -15,6 +15,6 @@ data class ChatState(
     val inputText: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
-    val lastMetrics: ResponseMetrics? = null,
+    val chatMetrics: ChatMetrics? = null,
     val showMetrics: Boolean = false
 )

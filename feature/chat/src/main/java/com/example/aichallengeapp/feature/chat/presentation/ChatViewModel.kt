@@ -3,7 +3,9 @@ package com.example.aichallengeapp.feature.chat.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
+import com.example.aichallengeapp.core.database.domain.model.ChatMetrics
 import com.example.aichallengeapp.core.database.domain.model.ChatSession
+import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
 import com.example.aichallengeapp.feature.settings.domain.repository.SettingsRepository
@@ -17,7 +19,8 @@ class ChatViewModel(
     private val chatId: String,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
     private val settingsRepository: SettingsRepository,
-    private val sessionRepository: ChatSessionRepository
+    private val sessionRepository: ChatSessionRepository,
+    private val metricsRepository: ChatMetricsRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ChatState())
@@ -30,19 +33,27 @@ class ChatViewModel(
                 _state.update { it.copy(messages = session.messages) }
             }
         }
+        viewModelScope.launch {
+            metricsRepository.observeMetrics(chatId).collect { metrics ->
+                _state.update { it.copy(chatMetrics = metrics) }
+            }
+        }
     }
 
     fun onIntent(intent: ChatIntent) {
         when (intent) {
             is ChatIntent.SendMessage -> sendMessage()
             is ChatIntent.UpdateInput -> _state.update { it.copy(inputText = intent.text) }
-            is ChatIntent.ClearChat -> {
-                _state.update {
-                    it.copy(messages = emptyList(), error = null, lastMetrics = null, showMetrics = false)
-                }
-                persistSession(emptyList())
-            }
+            is ChatIntent.ClearChat -> clearChat()
             is ChatIntent.ToggleMetrics -> _state.update { it.copy(showMetrics = !it.showMetrics) }
+        }
+    }
+
+    private fun clearChat() {
+        _state.update { it.copy(showMetrics = false, messages = emptyList(), error = null) }
+        viewModelScope.launch {
+            metricsRepository.deleteMetrics(chatId)
+            persistSession(emptyList())
         }
     }
 
@@ -77,11 +88,21 @@ class ChatViewModel(
                     _state.update {
                         it.copy(
                             messages = it.messages + assistantMessage,
-                            isLoading = false,
-                            lastMetrics = result.metrics
+                            isLoading = false
                         )
                     }
-                    persistSession(_state.value.messages)
+                    persistSession(_state.value.messages)  // awaited: session exists before metrics insert
+
+                    val currentTotal = _state.value.chatMetrics?.totalTokens ?: 0
+                    val newTotal = currentTotal + result.metrics.promptTokens + result.metrics.completionTokens
+                    metricsRepository.upsertMetrics(
+                        ChatMetrics(
+                            chatId = chatId,
+                            lastRequestTokens = result.metrics.promptTokens,
+                            lastResponseTokens = result.metrics.completionTokens,
+                            totalTokens = newTotal
+                        )
+                    )
                 }
                 .onFailure { throwable ->
                     _state.update {
@@ -94,16 +115,14 @@ class ChatViewModel(
         }
     }
 
-    private fun persistSession(messages: List<ChatMessage>) {
-        viewModelScope.launch {
-            if (messages.isEmpty()) {
-                sessionRepository.deleteSession(chatId)
-            } else {
-                val existing = sessionRepository.getSession(chatId)
-                val session = existing?.copy(messages = messages, updatedAt = System.currentTimeMillis())
-                    ?: ChatSession(id = chatId, messages = messages)
-                sessionRepository.upsertSession(session)
-            }
+    private suspend fun persistSession(messages: List<ChatMessage>) {
+        if (messages.isEmpty()) {
+            sessionRepository.deleteSession(chatId)
+        } else {
+            val existing = sessionRepository.getSession(chatId)
+            val session = existing?.copy(messages = messages, updatedAt = System.currentTimeMillis())
+                ?: ChatSession(id = chatId, messages = messages)
+            sessionRepository.upsertSession(session)
         }
     }
 }
