@@ -8,12 +8,14 @@ import com.example.aichallengeapp.core.database.data.repository.ChatMetricsRepos
 import com.example.aichallengeapp.core.database.data.repository.ChatSessionRepositoryImpl
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
+import kotlinx.coroutines.Dispatchers
 import org.koin.dsl.module
 
 val databaseModule = module {
     single {
         Room.databaseBuilder(get<Context>(), AppDatabase::class.java, "app_db")
             .addMigrations(MIGRATION_1_2)
+            .setQueryCoroutineContext(Dispatchers.IO)
             .build()
     }
     single { get<AppDatabase>().chatSessionDao() }

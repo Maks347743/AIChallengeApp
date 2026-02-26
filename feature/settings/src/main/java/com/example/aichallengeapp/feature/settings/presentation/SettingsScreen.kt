@@ -1,6 +1,7 @@
 package com.example.aichallengeapp.feature.settings.presentation
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -191,6 +193,50 @@ fun SettingsScreen(
                             textAlign = TextAlign.End,
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Summary Mode section
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.label_summary_mode),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = settings.summaryEnabled,
+                            onCheckedChange = { viewModel.onIntent(SettingsIntent.ToggleSummary(it)) }
+                        )
+                    }
+                    AnimatedVisibility(visible = settings.summaryEnabled) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = settings.maxRecentMessages.toString(),
+                                onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSummaryRecentMessages(it)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.label_summary_recent_messages)) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = settings.summaryMaxTokens.toString(),
+                                onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSummaryMaxTokens(it)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.label_summary_max_tokens)) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
+                            )
+                        }
                     }
                 }
             }

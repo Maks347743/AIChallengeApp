@@ -9,4 +9,7 @@
     <string name="temperature_min">0.0</string>
     <string name="temperature_max">2.0</string>
     <string name="label_model">Модель</string>
+    <string name="label_summary_mode">Режим суммаризации</string>
+    <string name="label_summary_recent_messages">Последних сообщений без суммаризации</string>
+    <string name="label_summary_max_tokens">Макс. токенов в суммаризации</string>
 </resources>

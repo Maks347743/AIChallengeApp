@@ -12,4 +12,7 @@ sealed interface SettingsIntent {
     data class UpdateSystemPrompt(val text: String) : SettingsIntent
     data class UpdateTemperature(val value: Float) : SettingsIntent
     data class UpdateModel(val model: DeepSeekModel) : SettingsIntent
+    data class ToggleSummary(val enabled: Boolean) : SettingsIntent
+    data class UpdateSummaryRecentMessages(val value: String) : SettingsIntent
+    data class UpdateSummaryMaxTokens(val value: String) : SettingsIntent
 }

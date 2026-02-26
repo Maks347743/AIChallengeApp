@@ -10,5 +10,6 @@ data class ChatMessage(
     companion object {
         const val ROLE_USER = "user"
         const val ROLE_ASSISTANT = "assistant"
+        const val ROLE_SUMMARY = "summary"
     }
 }

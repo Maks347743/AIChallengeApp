@@ -38,7 +38,12 @@ class ChatRepositoryImpl(
             val startTime = System.currentTimeMillis()
             val request = ChatRequest(
                 model = model,
-                messages = messages.map { MessageDto(role = it.role, content = it.content) },
+                messages = messages.map {
+                    MessageDto(
+                        role = if (it.role == ChatMessage.ROLE_SUMMARY) ChatMessage.ROLE_USER else it.role,
+                        content = it.content
+                    )
+                },
                 maxTokens = maxTokens,
                 temperature = temperature
             )

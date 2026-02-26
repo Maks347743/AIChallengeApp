@@ -19,6 +19,11 @@ class SettingsViewModel(private val settingsRepository: SettingsRepository) : Vi
             is SettingsIntent.UpdateSystemPrompt -> updateSettings { copy(systemPrompt = intent.text) }
             is SettingsIntent.UpdateMaxTokens -> updateSettings { copy(maxTokensText = intent.value) }
             is SettingsIntent.UpdateTemperature -> updateSettings { copy(temperature = intent.value) }
+            is SettingsIntent.ToggleSummary -> updateSettings { copy(summaryEnabled = intent.enabled) }
+            is SettingsIntent.UpdateSummaryRecentMessages ->
+                intent.value.toIntOrNull()?.let { v -> updateSettings { copy(maxRecentMessages = v) } }
+            is SettingsIntent.UpdateSummaryMaxTokens ->
+                intent.value.toIntOrNull()?.let { v -> updateSettings { copy(summaryMaxTokens = v) } }
         }
     }
 

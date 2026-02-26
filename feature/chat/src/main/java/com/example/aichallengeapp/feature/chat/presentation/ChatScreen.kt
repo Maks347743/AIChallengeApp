@@ -438,6 +438,36 @@ private fun MetricRow(label: String, value: String, bold: Boolean = false) {
 
 @Composable
 private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
+    if (message.role == ChatMessage.ROLE_SUMMARY) {
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
+            ) {
+                Text(
+                    text = stringResource(R.string.label_summary),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = message.content,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+        return
+    }
+
     val isUser = message.role == ChatMessage.ROLE_USER
     val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
     val cornerLarge = dimensionResource(R.dimen.chat_bubble_corner_large)
