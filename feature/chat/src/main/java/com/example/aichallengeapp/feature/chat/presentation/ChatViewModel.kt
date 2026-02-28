@@ -76,9 +76,13 @@ class ChatViewModel(
 
         viewModelScope.launch {
             val settings = settingsRepository.load(chatId)
+            val doStickyFacts = settings.stickyFactsEnabled
+                && existingMessages.size > settings.stickyFactsRecentMessages
             val doSummary = settings.summaryEnabled
-                && existingMessages.size > settings.maxRecentMessages
-            if (doSummary) {
+                && existingMessages.size > settings.retainedMessageCount
+            if (doStickyFacts) {
+                sendMessageWithStickyFacts(settings, existingMessages, userMessage)
+            } else if (doSummary) {
                 sendMessageWithSummary(settings, existingMessages, userMessage)
             } else {
                 sendMessageNormal(settings)
@@ -137,9 +141,9 @@ class ChatViewModel(
         existingMessages: List<ChatMessage>,
         userMessage: ChatMessage
     ) {
-        val maxRecentMessages = settings.maxRecentMessages
-        val olderMessages = existingMessages.dropLast(maxRecentMessages)
-        val recentMessages = existingMessages.takeLast(maxRecentMessages)
+        val retainedMessageCount = settings.retainedMessageCount
+        val olderMessages = existingMessages.dropLast(retainedMessageCount)
+        val recentMessages = existingMessages.takeLast(retainedMessageCount)
         val summaryMaxTokens = settings.summaryMaxTokens
 
         val previousSummary = olderMessages.firstOrNull { it.role == ChatMessage.ROLE_SUMMARY }
@@ -216,6 +220,71 @@ class ChatViewModel(
                     error = throwable.message ?: "Unknown error"
                 )
             }
+        }
+    }
+
+    private suspend fun sendMessageWithStickyFacts(
+        settings: ChatSettings,
+        existingMessages: List<ChatMessage>,
+        userMessage: ChatMessage
+    ) {
+        val recentMessages = existingMessages.takeLast(settings.stickyFactsRecentMessages)
+        val olderMessages = existingMessages.dropLast(settings.stickyFactsRecentMessages)
+
+        val previousFacts = olderMessages.firstOrNull { it.role == ChatMessage.ROLE_FACTS }
+        val olderNonFacts = olderMessages.filter { it.role != ChatMessage.ROLE_FACTS }
+
+        val conversationText = buildString {
+            if (previousFacts != null) append("${previousFacts.content}\n\n")
+            append(olderNonFacts.joinToString("\n") { msg ->
+                val label = if (msg.role == ChatMessage.ROLE_ASSISTANT) "Ассистент" else "Пользователь"
+                "$label: ${msg.content}"
+            })
+        }
+
+        val factsHistory = listOf(
+            ChatMessage(role = "system", content = "Ты краткий суммаризатор переписок, который может вычленять важные данные из переписки"),
+            ChatMessage(role = ChatMessage.ROLE_USER, content = "Сделай краткую выдержку важных данных следующей переписки в формате факт:значение. Каждый новый факт переноси на новую строку, чтобы выглядело аккуратно:\n\n$conversationText")
+        )
+        val factsResult = sendChatMessageUseCase(factsHistory, maxTokens = null, temperature = null, model = settings.model.id)
+
+        if (factsResult.isFailure) {
+            _state.update { it.copy(isLoading = false, error = factsResult.exceptionOrNull()?.message ?: "Facts extraction failed") }
+            return
+        }
+
+        val factsContent = factsResult.getOrNull()!!.message
+
+        val mainHistory = buildList {
+            add(ChatMessage(role = "system", content = settings.systemPrompt))
+            add(ChatMessage(role = "user", content = factsContent))
+            addAll(recentMessages.filter { it.role != ChatMessage.ROLE_FACTS })
+            add(userMessage)
+        }
+        val mainResult = sendChatMessageUseCase(mainHistory, settings.maxTokens, settings.temperature, settings.model.id)
+
+        mainResult.onSuccess { result ->
+            val factsMessage = ChatMessage(role = ChatMessage.ROLE_FACTS, content = factsContent)
+            val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = result.message)
+            val newMessages = listOf(factsMessage) +
+                recentMessages.filter { it.role != ChatMessage.ROLE_FACTS } +
+                userMessage + assistantMessage
+            _state.update { it.copy(messages = newMessages, isLoading = false) }
+            persistSession(newMessages)
+
+            val currentTotal = _state.value.chatMetrics?.totalTokens ?: 0
+            val newTotal = currentTotal + result.metrics.promptTokens + result.metrics.completionTokens
+            metricsRepository.upsertMetrics(
+                ChatMetrics(
+                    chatId = chatId,
+                    lastRequestTokens = result.metrics.promptTokens,
+                    lastResponseTokens = result.metrics.completionTokens,
+                    totalTokens = newTotal
+                )
+            )
+        }
+        mainResult.onFailure { throwable ->
+            _state.update { it.copy(isLoading = false, error = throwable.message ?: "Unknown error") }
         }
     }
 

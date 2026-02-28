@@ -14,4 +14,6 @@
     <string name="label_summary_max_tokens">Макс. токенов в суммаризации</string>
     <string name="label_sliding_window_mode">Режим Sliding Window</string>
     <string name="label_sliding_window_size">Размер окна (кол-во сообщений)</string>
+    <string name="label_sticky_facts_mode">Sticky Facts</string>
+    <string name="label_sticky_facts_recent_messages">Сообщений без обработки</string>
 </resources>

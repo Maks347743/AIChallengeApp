@@ -4,7 +4,11 @@ import com.example.aichallengeapp.feature.settings.domain.model.ChatSettings
 import com.example.aichallengeapp.feature.settings.domain.model.DeepSeekModel
 
 data class SettingsState(
-    val settings: ChatSettings = ChatSettings()
+    val settings: ChatSettings = ChatSettings(),
+    val maxRecentMessagesText: String = ChatSettings().retainedMessageCount.toString(),
+    val summaryMaxTokensText: String = ChatSettings().summaryMaxTokens.toString(),
+    val slidingWindowSizeText: String = ChatSettings().slidingWindowSize.toString(),
+    val stickyFactsRecentMessagesText: String = ChatSettings().stickyFactsRecentMessages.toString(),
 )
 
 sealed interface SettingsIntent {
@@ -17,4 +21,6 @@ sealed interface SettingsIntent {
     data class UpdateSummaryMaxTokens(val value: String) : SettingsIntent
     data class ToggleSlidingWindow(val enabled: Boolean) : SettingsIntent
     data class UpdateSlidingWindowSize(val value: String) : SettingsIntent
+    data class ToggleStickyFacts(val enabled: Boolean) : SettingsIntent
+    data class UpdateStickyFactsRecentMessages(val value: String) : SettingsIntent
 }

@@ -224,19 +224,21 @@ fun SettingsScreen(
                         Column {
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
-                                value = settings.maxRecentMessages.toString(),
+                                value = state.maxRecentMessagesText,
                                 onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSummaryRecentMessages(it)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text(stringResource(R.string.label_summary_recent_messages)) },
+                                isError = state.maxRecentMessagesText.toIntOrNull()?.let { it > 0 } != true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
-                                value = settings.summaryMaxTokens.toString(),
+                                value = state.summaryMaxTokensText,
                                 onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSummaryMaxTokens(it)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text(stringResource(R.string.label_summary_max_tokens)) },
+                                isError = state.summaryMaxTokensText.toIntOrNull()?.let { it > 0 } != true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true
                             )
@@ -268,10 +270,47 @@ fun SettingsScreen(
                         Column {
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
-                                value = settings.slidingWindowSize.toString(),
+                                value = state.slidingWindowSizeText,
                                 onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSlidingWindowSize(it)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text(stringResource(R.string.label_sliding_window_size)) },
+                                isError = state.slidingWindowSizeText.toIntOrNull()?.let { it > 0 } != true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Sticky Facts Mode section
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.label_sticky_facts_mode),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = settings.stickyFactsEnabled,
+                            onCheckedChange = { viewModel.onIntent(SettingsIntent.ToggleStickyFacts(it)) }
+                        )
+                    }
+                    AnimatedVisibility(visible = settings.stickyFactsEnabled) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = state.stickyFactsRecentMessagesText,
+                                onValueChange = { viewModel.onIntent(SettingsIntent.UpdateStickyFactsRecentMessages(it)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.label_sticky_facts_recent_messages)) },
+                                isError = state.stickyFactsRecentMessagesText.toIntOrNull()?.let { it > 0 } != true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true
                             )

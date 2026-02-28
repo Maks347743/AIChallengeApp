@@ -9,10 +9,12 @@ data class ChatSettings(
     val temperature: Float = 1.0f,
     val model: DeepSeekModel = DeepSeekModel.DEEPSEEK_CHAT,
     val summaryEnabled: Boolean = false,
-    val maxRecentMessages: Int = 10,
+    val retainedMessageCount: Int = 10,
     val summaryMaxTokens: Int = 50,
     val slidingWindowEnabled: Boolean = false,
     val slidingWindowSize: Int = 10,
+    val stickyFactsEnabled: Boolean = false,
+    val stickyFactsRecentMessages: Int = 10,
 ) {
     val maxTokens: Int?
         get() = maxTokensText.toIntOrNull()

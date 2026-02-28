@@ -20,7 +20,16 @@ class SettingsViewModel(
 
     init {
         viewModelScope.launch {
-            _state.update { it.copy(settings = settingsRepository.load(chatId)) }
+            val settings = settingsRepository.load(chatId)
+            _state.update {
+                it.copy(
+                    settings = settings,
+                    maxRecentMessagesText = settings.retainedMessageCount.toString(),
+                    summaryMaxTokensText = settings.summaryMaxTokens.toString(),
+                    slidingWindowSizeText = settings.slidingWindowSize.toString(),
+                    stickyFactsRecentMessagesText = settings.stickyFactsRecentMessages.toString(),
+                )
+            }
         }
     }
 
@@ -31,19 +40,37 @@ class SettingsViewModel(
             is SettingsIntent.UpdateMaxTokens -> updateSettings { copy(maxTokensText = intent.value) }
             is SettingsIntent.UpdateTemperature -> updateSettings { copy(temperature = intent.value) }
             is SettingsIntent.ToggleSummary -> updateSettings {
-                if (intent.enabled) copy(summaryEnabled = true, slidingWindowEnabled = false)
+                if (intent.enabled) copy(summaryEnabled = true, slidingWindowEnabled = false, stickyFactsEnabled = false)
                 else copy(summaryEnabled = false)
             }
-            is SettingsIntent.UpdateSummaryRecentMessages ->
-                intent.value.toIntOrNull()?.let { v -> updateSettings { copy(maxRecentMessages = v) } }
-            is SettingsIntent.UpdateSummaryMaxTokens ->
-                intent.value.toIntOrNull()?.let { v -> updateSettings { copy(summaryMaxTokens = v) } }
+            is SettingsIntent.UpdateSummaryRecentMessages -> {
+                _state.update { it.copy(maxRecentMessagesText = intent.value) }
+                intent.value.toIntOrNull()?.takeIf { it > 0 }
+                    ?.let { v -> updateSettings { copy(retainedMessageCount = v) } }
+            }
+            is SettingsIntent.UpdateSummaryMaxTokens -> {
+                _state.update { it.copy(summaryMaxTokensText = intent.value) }
+                intent.value.toIntOrNull()?.takeIf { it > 0 }
+                    ?.let { v -> updateSettings { copy(summaryMaxTokens = v) } }
+            }
             is SettingsIntent.ToggleSlidingWindow -> updateSettings {
-                if (intent.enabled) copy(slidingWindowEnabled = true, summaryEnabled = false)
+                if (intent.enabled) copy(slidingWindowEnabled = true, summaryEnabled = false, stickyFactsEnabled = false)
                 else copy(slidingWindowEnabled = false)
             }
-            is SettingsIntent.UpdateSlidingWindowSize ->
-                intent.value.toIntOrNull()?.let { v -> updateSettings { copy(slidingWindowSize = v) } }
+            is SettingsIntent.UpdateSlidingWindowSize -> {
+                _state.update { it.copy(slidingWindowSizeText = intent.value) }
+                intent.value.toIntOrNull()?.takeIf { it > 0 }
+                    ?.let { v -> updateSettings { copy(slidingWindowSize = v) } }
+            }
+            is SettingsIntent.ToggleStickyFacts -> updateSettings {
+                if (intent.enabled) copy(stickyFactsEnabled = true, summaryEnabled = false, slidingWindowEnabled = false)
+                else copy(stickyFactsEnabled = false)
+            }
+            is SettingsIntent.UpdateStickyFactsRecentMessages -> {
+                _state.update { it.copy(stickyFactsRecentMessagesText = intent.value) }
+                intent.value.toIntOrNull()?.takeIf { it > 0 }
+                    ?.let { v -> updateSettings { copy(stickyFactsRecentMessages = v) } }
+            }
         }
     }
 

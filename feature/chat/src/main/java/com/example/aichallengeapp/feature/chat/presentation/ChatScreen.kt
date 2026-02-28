@@ -500,6 +500,36 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
         return
     }
 
+    if (message.role == ChatMessage.ROLE_FACTS) {
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
+            ) {
+                Text(
+                    text = stringResource(R.string.label_facts),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = message.content,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+        return
+    }
+
     val isUser = message.role == ChatMessage.ROLE_USER
     val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
     val cornerLarge = dimensionResource(R.dimen.chat_bubble_corner_large)

@@ -11,5 +11,6 @@ data class ChatMessage(
         const val ROLE_USER = "user"
         const val ROLE_ASSISTANT = "assistant"
         const val ROLE_SUMMARY = "summary"
+        const val ROLE_FACTS = "facts"
     }
 }
