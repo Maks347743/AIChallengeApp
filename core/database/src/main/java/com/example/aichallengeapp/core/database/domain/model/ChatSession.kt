@@ -7,10 +7,12 @@ data class ChatSession(
     val messages: List<ChatMessage> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
-    val settingsJson: String? = null
+    val settingsJson: String? = null,
+    val checkpointGroupId: String? = null,
+    val branchIndex: Int = 0
 ) {
     fun previewText(wordCount: Int = CHAT_SESSION_TITLE_WORDS_COUNT): String {
-        val last = messages.lastOrNull { it.role != "system" } ?: return "New Chat"
+        val last = messages.lastOrNull { it.role != ChatMessage.ROLE_SYSTEM } ?: return "New Chat"
         val words = last.content.trim().split("\\s+".toRegex())
         return if (words.size <= wordCount) last.content.trim()
                else words.take(wordCount).joinToString(" ") + "…"

@@ -4,4 +4,5 @@
     <string name="empty_chat_list">No chats yet. Tap + to start</string>
     <string name="cd_new_chat">New chat</string>
     <string name="cd_settings">Settings</string>
+    <string name="label_branch">Branch %d</string>
 </resources>

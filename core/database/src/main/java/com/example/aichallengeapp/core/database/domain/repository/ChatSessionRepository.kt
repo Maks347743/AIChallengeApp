@@ -10,4 +10,6 @@ interface ChatSessionRepository {
     suspend fun deleteSession(id: String)
     suspend fun getSettingsJson(chatId: String): String?
     suspend fun updateSettingsJson(chatId: String, settingsJson: String)
+    suspend fun getSessionsByGroup(groupId: String): List<ChatSession>
+    suspend fun updateCheckpointFields(id: String, groupId: String, branchIndex: Int)
 }

@@ -8,7 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ChatSessionEntity::class, ChatMetricsEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -38,5 +38,12 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
 val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `chat_sessions` ADD COLUMN `settings_json` TEXT")
+    }
+}
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `chat_sessions` ADD COLUMN `checkpoint_group_id` TEXT")
+        db.execSQL("ALTER TABLE `chat_sessions` ADD COLUMN `branch_index` INTEGER NOT NULL DEFAULT 0")
     }
 }

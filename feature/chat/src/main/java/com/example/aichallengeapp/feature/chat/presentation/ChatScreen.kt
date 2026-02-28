@@ -1,5 +1,6 @@
 package com.example.aichallengeapp.feature.chat.presentation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -8,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -40,6 +43,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -55,6 +59,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -81,24 +86,28 @@ import com.example.aichallengeapp.feature.chat.ui.theme.SendBlueDark
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.koin.androidx.compose.koinViewModel
-import org.koin.core.parameter.parametersOf
 
 private const val SCROLL_BUTTON_HIDE_DELAY_MS = 2000L
+private const val CLEAR_ANIM_DURATION_MS = 250
+private const val CLEAR_COMPLETE_DELAY_MS = 280L
+private const val SCROLL_SUPPRESS_DELAY_MS = 100L
+private const val JUMP_BUTTON_ANIM_DURATION_MS = 150
+private const val SCROLL_ITEM_END_OFFSET = Int.MAX_VALUE / 2
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    chatId: String,
     onNavigateBack: () -> Unit,
-    onNavigateToSettings: () -> Unit,
+    onNavigateToSettings: (activeChatId: String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ChatViewModel = koinViewModel(key = chatId) { parametersOf(chatId) }
+    viewModel: ChatViewModel
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var clearAnimating by remember { mutableStateOf(false) }
     var showClearConfirmDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
+
+    BackHandler { viewModel.onNavigatingBack(onNavigateBack) }
 
     if (showClearConfirmDialog) {
         AlertDialog(
@@ -140,7 +149,7 @@ fun ChatScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = { viewModel.onNavigatingBack(onNavigateBack) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.cd_back)
@@ -148,7 +157,16 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToSettings) {
+                    IconButton(
+                        onClick = { viewModel.onIntent(ChatIntent.CreateCheckpoint) },
+                        enabled = state.messages.isNotEmpty() && !state.isLoading && state.branches.size < 2
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CallSplit,
+                            contentDescription = stringResource(R.string.cd_create_checkpoint)
+                        )
+                    }
+                    IconButton(onClick = { onNavigateToSettings(state.activeChatId) }) {
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = stringResource(R.string.cd_settings)
@@ -191,14 +209,22 @@ fun ChatScreen(
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
+            if (state.branches.size > 1) {
+                BranchSwitcherRow(
+                    branches = state.branches,
+                    activeBranchIndex = state.activeBranchIndex,
+                    onBranchSelected = { branchId -> viewModel.onIntent(ChatIntent.SwitchBranch(branchId)) }
+                )
+            }
+
             val clearAlpha = remember { Animatable(1f) }
             val clearScale = remember { Animatable(1f) }
 
             LaunchedEffect(clearAnimating) {
                 if (clearAnimating) {
-                    launch { clearAlpha.animateTo(0f, tween(250)) }
-                    launch { clearScale.animateTo(0.95f, tween(250)) }
-                    delay(280L)
+                    launch { clearAlpha.animateTo(0f, tween(CLEAR_ANIM_DURATION_MS)) }
+                    launch { clearScale.animateTo(0.95f, tween(CLEAR_ANIM_DURATION_MS)) }
+                    delay(CLEAR_COMPLETE_DELAY_MS)
                     viewModel.onIntent(ChatIntent.ClearChat)
                     clearAlpha.snapTo(1f)
                     clearScale.snapTo(1f)
@@ -233,9 +259,9 @@ fun ChatScreen(
                     suppressScrollDetection = true
                     listState.scrollToItem(
                         index = state.messages.size - 1,
-                        scrollOffset = Int.MAX_VALUE / 2
+                        scrollOffset = SCROLL_ITEM_END_OFFSET
                     )
-                    delay(100)
+                    delay(SCROLL_SUPPRESS_DELAY_MS)
                     suppressScrollDetection = false
                 }
             }
@@ -313,7 +339,7 @@ fun ChatScreen(
                     }
                 }
 
-                Box(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
+                Box(modifier = Modifier.align(Alignment.TopEnd).padding(dimensionResource(R.dimen.scroll_jump_button_padding))) {
                     ScrollJumpButton(
                         visible = topButtonVisible,
                         icon = Icons.Default.KeyboardArrowUp,
@@ -330,7 +356,7 @@ fun ChatScreen(
                     )
                 }
 
-                Box(modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)) {
+                Box(modifier = Modifier.align(Alignment.BottomEnd).padding(dimensionResource(R.dimen.scroll_jump_button_padding))) {
                     ScrollJumpButton(
                         visible = bottomButtonVisible,
                         icon = Icons.Default.KeyboardArrowDown,
@@ -341,7 +367,7 @@ fun ChatScreen(
                             scope.launch {
                                 listState.scrollToItem(
                                     index = listState.layoutInfo.totalItemsCount - 1,
-                                    scrollOffset = Int.MAX_VALUE / 2
+                                    scrollOffset = SCROLL_ITEM_END_OFFSET
                                 )
                                 delay(100)
                                 suppressScrollDetection = false
@@ -409,8 +435,8 @@ private fun ScrollJumpButton(
 ) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(150)) + scaleIn(tween(150)),
-        exit = fadeOut(tween(150)) + scaleOut(tween(150))
+        enter = fadeIn(tween(JUMP_BUTTON_ANIM_DURATION_MS)) + scaleIn(tween(JUMP_BUTTON_ANIM_DURATION_MS)),
+        exit = fadeOut(tween(JUMP_BUTTON_ANIM_DURATION_MS)) + scaleOut(tween(JUMP_BUTTON_ANIM_DURATION_MS))
     ) {
         SmallFloatingActionButton(
             onClick = onClick,
@@ -427,23 +453,26 @@ private fun MetricsBottomSheetContent(metrics: ChatMetrics) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp)
+            .padding(
+                horizontal = dimensionResource(R.dimen.metrics_sheet_padding_horizontal),
+                vertical = dimensionResource(R.dimen.metrics_sheet_padding_vertical)
+            )
     ) {
         Text(
             text = "Token Usage",
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = dimensionResource(R.dimen.metrics_title_bottom_padding))
         )
         MetricRow(label = "Last request (prompt)", value = "${metrics.lastRequestTokens} tokens")
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = dimensionResource(R.dimen.metrics_divider_padding_vertical)))
         MetricRow(label = "Last response (completion)", value = "${metrics.lastResponseTokens} tokens")
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = dimensionResource(R.dimen.metrics_divider_padding_vertical)))
         MetricRow(
             label = "Total for this chat",
             value = "${metrics.totalTokens} tokens",
             bold = true
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(dimensionResource(R.dimen.metrics_spacer_height)))
     }
 }
 
@@ -469,6 +498,34 @@ private fun MetricRow(label: String, value: String, bold: Boolean = false) {
 }
 
 @Composable
+private fun BranchSwitcherRow(
+    branches: List<BranchInfo>,
+    activeBranchIndex: Int,
+    onBranchSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(
+                horizontal = dimensionResource(R.dimen.branch_switcher_padding_horizontal),
+                vertical = dimensionResource(R.dimen.branch_switcher_padding_vertical)
+            ),
+        horizontalArrangement = Arrangement.spacedBy(dimensionResource(R.dimen.branch_chip_spacing)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        branches.forEach { branch ->
+            FilterChip(
+                selected = branch.branchIndex == activeBranchIndex,
+                onClick = { if (branch.branchIndex != activeBranchIndex) onBranchSelected(branch.sessionId) },
+                label = { Text("Branch ${branch.branchIndex}") }
+            )
+        }
+    }
+}
+
+@Composable
 private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
     if (message.role == ChatMessage.ROLE_SUMMARY) {
         Card(
@@ -489,7 +546,7 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(dimensionResource(R.dimen.chat_bubble_label_spacing)))
                 Text(
                     text = message.content,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -519,7 +576,7 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(dimensionResource(R.dimen.chat_bubble_label_spacing)))
                 Text(
                     text = message.content,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,

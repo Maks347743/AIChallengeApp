@@ -9,4 +9,14 @@
     <dimen name="chat_bubble_corner_large">20dp</dimen>
     <dimen name="chat_bubble_corner_small">6dp</dimen>
     <dimen name="chat_bubble_content_padding">14dp</dimen>
+    <dimen name="chat_bubble_label_spacing">4dp</dimen>
+    <dimen name="scroll_jump_button_padding">8dp</dimen>
+    <dimen name="metrics_sheet_padding_horizontal">24dp</dimen>
+    <dimen name="metrics_sheet_padding_vertical">16dp</dimen>
+    <dimen name="metrics_title_bottom_padding">16dp</dimen>
+    <dimen name="metrics_divider_padding_vertical">8dp</dimen>
+    <dimen name="metrics_spacer_height">24dp</dimen>
+    <dimen name="branch_switcher_padding_horizontal">12dp</dimen>
+    <dimen name="branch_switcher_padding_vertical">6dp</dimen>
+    <dimen name="branch_chip_spacing">8dp</dimen>
 </resources>

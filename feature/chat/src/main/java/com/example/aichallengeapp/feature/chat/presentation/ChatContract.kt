@@ -8,7 +8,11 @@ sealed interface ChatIntent {
     data class UpdateInput(val text: String) : ChatIntent
     data object ClearChat : ChatIntent
     data object ToggleMetrics : ChatIntent
+    data object CreateCheckpoint : ChatIntent
+    data class SwitchBranch(val sessionId: String) : ChatIntent
 }
+
+data class BranchInfo(val sessionId: String, val branchIndex: Int)
 
 data class ChatState(
     val messages: List<ChatMessage> = emptyList(),
@@ -16,5 +20,8 @@ data class ChatState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val chatMetrics: ChatMetrics? = null,
-    val showMetrics: Boolean = false
+    val showMetrics: Boolean = false,
+    val branches: List<BranchInfo> = emptyList(),
+    val activeBranchIndex: Int = 0,
+    val activeChatId: String = ""
 )

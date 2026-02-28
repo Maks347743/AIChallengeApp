@@ -4,4 +4,7 @@
     <dimen name="settings_content_padding_vertical">12dp</dimen>
     <dimen name="settings_label_spacing">4dp</dimen>
     <dimen name="settings_section_spacing">24dp</dimen>
+    <dimen name="settings_card_content_padding">16dp</dimen>
+    <dimen name="settings_title_spacing">8dp</dimen>
+    <dimen name="settings_card_spacing">12dp</dimen>
 </resources>

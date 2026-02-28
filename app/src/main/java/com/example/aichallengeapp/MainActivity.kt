@@ -14,7 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.example.aichallengeapp.feature.chat.ChatRoute
 import com.example.aichallengeapp.feature.chat.presentation.ChatScreen
@@ -23,6 +25,8 @@ import com.example.aichallengeapp.feature.chatlist.presentation.ChatListScreen
 import com.example.aichallengeapp.feature.settings.SettingsRoute
 import com.example.aichallengeapp.feature.settings.presentation.SettingsScreen
 import com.example.aichallengeapp.ui.theme.AIChallengeAppTheme
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 class MainActivity : ComponentActivity() {
 
@@ -43,6 +47,10 @@ fun AppNavigation(modifier: Modifier = Modifier) {
 
     NavDisplay(
         backStack = backStack,
+        entryDecorators = listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            rememberViewModelStoreNavEntryDecorator()
+        ),
         onBack = { backStack.removeLastOrNull() },
         transitionSpec = {
             slideInHorizontally(tween(350, easing = FastOutSlowInEasing)) { it } togetherWith
@@ -55,16 +63,16 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         entryProvider = entryProvider {
             entry<ChatListRoute> {
                 ChatListScreen(
-                    onNavigateToChat = { chatId -> backStack.add(ChatRoute(chatId)) },
+                    onNavigateToChat = { chatId, branchIndex -> backStack.add(ChatRoute(chatId, branchIndex)) },
                     modifier = modifier
                 )
             }
             entry<ChatRoute> { entry ->
                 ChatScreen(
-                    chatId = entry.chatId,
                     onNavigateBack = { backStack.removeLastOrNull() },
-                    onNavigateToSettings = { backStack.add(SettingsRoute(entry.chatId)) },
-                    modifier = modifier
+                    onNavigateToSettings = { activeChatId -> backStack.add(SettingsRoute(activeChatId)) },
+                    modifier = modifier,
+                    viewModel = koinViewModel(key = entry.chatId) { parametersOf(entry.chatId, entry.branchIndex) }
                 )
             }
             entry<SettingsRoute> { entry ->

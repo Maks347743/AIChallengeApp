@@ -43,12 +43,21 @@ class ChatSessionRepositoryImpl(
         }
     }
 
+    override suspend fun getSessionsByGroup(groupId: String): List<ChatSession> =
+        dao.getSessionsByGroup(groupId).map { it.toDomain() }
+
+    override suspend fun updateCheckpointFields(id: String, groupId: String, branchIndex: Int) {
+        dao.updateCheckpointFields(id, groupId, branchIndex)
+    }
+
     private fun ChatSessionEntity.toDomain() = ChatSession(
         id = id,
         messages = messages,
         createdAt = createdAt,
         updatedAt = updatedAt,
-        settingsJson = settingsJson
+        settingsJson = settingsJson,
+        checkpointGroupId = checkpointGroupId,
+        branchIndex = branchIndex
     )
 
     private fun ChatSession.toEntity() = ChatSessionEntity(
@@ -56,6 +65,8 @@ class ChatSessionRepositoryImpl(
         messages = messages,
         createdAt = createdAt,
         updatedAt = updatedAt,
-        settingsJson = settingsJson
+        settingsJson = settingsJson,
+        checkpointGroupId = checkpointGroupId,
+        branchIndex = branchIndex
     )
 }

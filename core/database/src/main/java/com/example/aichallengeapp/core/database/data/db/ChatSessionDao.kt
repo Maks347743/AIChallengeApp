@@ -24,4 +24,10 @@ interface ChatSessionDao {
 
     @Query("UPDATE chat_sessions SET settings_json = :settingsJson WHERE id = :id")
     suspend fun updateSettingsJson(id: String, settingsJson: String): Int
+
+    @Query("SELECT * FROM chat_sessions WHERE checkpoint_group_id = :groupId ORDER BY branch_index ASC")
+    suspend fun getSessionsByGroup(groupId: String): List<ChatSessionEntity>
+
+    @Query("UPDATE chat_sessions SET checkpoint_group_id = :groupId, branch_index = :branchIndex WHERE id = :id")
+    suspend fun updateCheckpointFields(id: String, groupId: String, branchIndex: Int): Int
 }

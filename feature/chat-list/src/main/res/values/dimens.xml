@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="chat_list_padding_horizontal">16dp</dimen>
+    <dimen name="chat_list_padding_vertical">8dp</dimen>
+    <dimen name="chat_list_item_spacing">4dp</dimen>
+    <dimen name="chat_list_card_padding_horizontal">16dp</dimen>
+    <dimen name="chat_list_card_padding_vertical">12dp</dimen>
+    <dimen name="chat_list_branch_chip_spacing">4dp</dimen>
+    <dimen name="chat_list_branch_chip_padding_horizontal">8dp</dimen>
+    <dimen name="chat_list_branch_chip_padding_vertical">2dp</dimen>
+</resources>

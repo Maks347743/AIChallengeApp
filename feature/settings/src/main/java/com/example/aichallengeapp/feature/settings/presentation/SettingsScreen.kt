@@ -38,12 +38,17 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aichallengeapp.feature.settings.R
 import com.example.aichallengeapp.feature.settings.domain.model.DeepSeekModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
+
+private const val TEMPERATURE_FORMAT = "%.2f"
+private val TEMPERATURE_RANGE = 0f..2f
+private const val TEMPERATURE_STEPS = 19
+private const val SYSTEM_PROMPT_MIN_LINES = 4
+private const val SYSTEM_PROMPT_MAX_LINES = 8
 
 @SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,12 +96,12 @@ fun SettingsScreen(
         ) {
             // Model section
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {
                     Text(
                         text = stringResource(R.string.label_model),
                         style = MaterialTheme.typography.titleMedium
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
                     DeepSeekModel.entries.forEach { model ->
                         Row(
                             modifier = Modifier
@@ -117,36 +122,36 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_card_spacing)))
 
             // System Prompt section
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {
                     Text(
                         text = stringResource(R.string.label_system_prompt),
                         style = MaterialTheme.typography.titleMedium
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
                     OutlinedTextField(
                         value = settings.systemPrompt,
                         onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSystemPrompt(it)) },
                         modifier = Modifier.fillMaxWidth(),
-                        minLines = 4,
-                        maxLines = 8
+                        minLines = SYSTEM_PROMPT_MIN_LINES,
+                        maxLines = SYSTEM_PROMPT_MAX_LINES
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_card_spacing)))
 
             // Max Tokens section
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {
                     Text(
                         text = stringResource(R.string.label_max_tokens),
                         style = MaterialTheme.typography.titleMedium
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
                     OutlinedTextField(
                         value = settings.maxTokensText,
                         onValueChange = { viewModel.onIntent(SettingsIntent.UpdateMaxTokens(it)) },
@@ -158,11 +163,11 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_card_spacing)))
 
             // Temperature section
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -173,16 +178,16 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = String.format("%.2f", settings.temperature),
+                            text = String.format(TEMPERATURE_FORMAT, settings.temperature),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
                     Slider(
                         value = settings.temperature,
                         onValueChange = { viewModel.onIntent(SettingsIntent.UpdateTemperature(it)) },
-                        valueRange = 0f..2f,
-                        steps = 19,
+                        valueRange = TEMPERATURE_RANGE,
+                        steps = TEMPERATURE_STEPS,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Row(modifier = Modifier.fillMaxWidth()) {
@@ -201,11 +206,11 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_card_spacing)))
 
             // Summary Mode section
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -222,7 +227,7 @@ fun SettingsScreen(
                     }
                     AnimatedVisibility(visible = settings.summaryEnabled) {
                         Column {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
                             OutlinedTextField(
                                 value = state.maxRecentMessagesText,
                                 onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSummaryRecentMessages(it)) },
@@ -232,7 +237,7 @@ fun SettingsScreen(
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
                             OutlinedTextField(
                                 value = state.summaryMaxTokensText,
                                 onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSummaryMaxTokens(it)) },
@@ -247,11 +252,11 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_card_spacing)))
 
             // Sliding Window Mode section
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -268,7 +273,7 @@ fun SettingsScreen(
                     }
                     AnimatedVisibility(visible = settings.slidingWindowEnabled) {
                         Column {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
                             OutlinedTextField(
                                 value = state.slidingWindowSizeText,
                                 onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSlidingWindowSize(it)) },
@@ -283,11 +288,11 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_card_spacing)))
 
             // Sticky Facts Mode section
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -304,7 +309,7 @@ fun SettingsScreen(
                     }
                     AnimatedVisibility(visible = settings.stickyFactsEnabled) {
                         Column {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
                             OutlinedTextField(
                                 value = state.stickyFactsRecentMessagesText,
                                 onValueChange = { viewModel.onIntent(SettingsIntent.UpdateStickyFactsRecentMessages(it)) },

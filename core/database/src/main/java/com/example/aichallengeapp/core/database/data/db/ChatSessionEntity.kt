@@ -11,5 +11,7 @@ data class ChatSessionEntity(
     val messages: List<ChatMessage>,
     val createdAt: Long,
     val updatedAt: Long,
-    @ColumnInfo(name = "settings_json") val settingsJson: String? = null
+    @ColumnInfo(name = "settings_json") val settingsJson: String? = null,
+    @ColumnInfo(name = "checkpoint_group_id") val checkpointGroupId: String? = null,
+    @ColumnInfo(name = "branch_index") val branchIndex: Int = 0
 )
