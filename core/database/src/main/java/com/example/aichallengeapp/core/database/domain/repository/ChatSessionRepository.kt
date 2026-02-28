@@ -8,4 +8,6 @@ interface ChatSessionRepository {
     suspend fun getSession(id: String): ChatSession?
     suspend fun upsertSession(session: ChatSession)
     suspend fun deleteSession(id: String)
+    suspend fun getSettingsJson(chatId: String): String?
+    suspend fun updateSettingsJson(chatId: String, settingsJson: String)
 }

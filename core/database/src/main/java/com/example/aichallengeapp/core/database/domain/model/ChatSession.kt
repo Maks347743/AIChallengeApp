@@ -6,7 +6,8 @@ data class ChatSession(
     val id: String,
     val messages: List<ChatMessage> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val settingsJson: String? = null
 ) {
     fun previewText(wordCount: Int = CHAT_SESSION_TITLE_WORDS_COUNT): String {
         val last = messages.lastOrNull { it.role != "system" } ?: return "New Chat"

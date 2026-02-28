@@ -24,17 +24,38 @@ class ChatSessionRepositoryImpl(
         dao.getById(id)?.let { dao.delete(it) }
     }
 
+    override suspend fun getSettingsJson(chatId: String): String? =
+        dao.getById(chatId)?.settingsJson
+
+    override suspend fun updateSettingsJson(chatId: String, settingsJson: String) {
+        val rows = dao.updateSettingsJson(chatId, settingsJson)
+        if (rows == 0) {
+            val now = System.currentTimeMillis()
+            dao.upsert(
+                ChatSessionEntity(
+                    id = chatId,
+                    messages = emptyList(),
+                    createdAt = now,
+                    updatedAt = now,
+                    settingsJson = settingsJson
+                )
+            )
+        }
+    }
+
     private fun ChatSessionEntity.toDomain() = ChatSession(
         id = id,
         messages = messages,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        settingsJson = settingsJson
     )
 
     private fun ChatSession.toEntity() = ChatSessionEntity(
         id = id,
         messages = messages,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        settingsJson = settingsJson
     )
 }

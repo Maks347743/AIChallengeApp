@@ -56,7 +56,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             entry<ChatListRoute> {
                 ChatListScreen(
                     onNavigateToChat = { chatId -> backStack.add(ChatRoute(chatId)) },
-                    onNavigateToSettings = { backStack.add(SettingsRoute) },
                     modifier = modifier
                 )
             }
@@ -64,11 +63,13 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 ChatScreen(
                     chatId = entry.chatId,
                     onNavigateBack = { backStack.removeLastOrNull() },
+                    onNavigateToSettings = { backStack.add(SettingsRoute(entry.chatId)) },
                     modifier = modifier
                 )
             }
-            entry<SettingsRoute> {
+            entry<SettingsRoute> { entry ->
                 SettingsScreen(
+                    chatId = entry.chatId,
                     onNavigateBack = { backStack.removeLastOrNull() },
                     modifier = modifier
                 )

@@ -1,5 +1,8 @@
 package com.example.aichallengeapp.feature.settings.domain.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ChatSettings(
     val systemPrompt: String = "You are a helpful assistant",
     val maxTokensText: String = "",
@@ -7,7 +10,9 @@ data class ChatSettings(
     val model: DeepSeekModel = DeepSeekModel.DEEPSEEK_CHAT,
     val summaryEnabled: Boolean = false,
     val maxRecentMessages: Int = 10,
-    val summaryMaxTokens: Int = 50
+    val summaryMaxTokens: Int = 50,
+    val slidingWindowEnabled: Boolean = false,
+    val slidingWindowSize: Int = 10,
 ) {
     val maxTokens: Int?
         get() = maxTokensText.toIntOrNull()

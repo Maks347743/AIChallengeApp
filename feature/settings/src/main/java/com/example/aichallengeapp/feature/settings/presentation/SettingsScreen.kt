@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -42,14 +43,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aichallengeapp.feature.settings.R
 import com.example.aichallengeapp.feature.settings.domain.model.DeepSeekModel
 import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    chatId: String,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = koinViewModel()
+    viewModel: SettingsViewModel = koinViewModel(key = chatId) { parametersOf(chatId) }
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val settings = state.settings
@@ -79,6 +82,7 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(
                     horizontal = dimensionResource(R.dimen.settings_content_padding_horizontal),
@@ -233,6 +237,41 @@ fun SettingsScreen(
                                 onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSummaryMaxTokens(it)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text(stringResource(R.string.label_summary_max_tokens)) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Sliding Window Mode section
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.label_sliding_window_mode),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = settings.slidingWindowEnabled,
+                            onCheckedChange = { viewModel.onIntent(SettingsIntent.ToggleSlidingWindow(it)) }
+                        )
+                    }
+                    AnimatedVisibility(visible = settings.slidingWindowEnabled) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = settings.slidingWindowSize.toString(),
+                                onValueChange = { viewModel.onIntent(SettingsIntent.UpdateSlidingWindowSize(it)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.label_sliding_window_size)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true
                             )

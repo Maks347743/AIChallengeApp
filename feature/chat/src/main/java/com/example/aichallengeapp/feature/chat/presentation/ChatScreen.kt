@@ -35,6 +35,8 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +51,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -88,12 +91,35 @@ private const val SCROLL_BUTTON_HIDE_DELAY_MS = 2000L
 fun ChatScreen(
     chatId: String,
     onNavigateBack: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = koinViewModel(key = chatId) { parametersOf(chatId) }
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var clearAnimating by remember { mutableStateOf(false) }
+    var showClearConfirmDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
+
+    if (showClearConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmDialog = false },
+            title = { Text(stringResource(R.string.dialog_clear_chat_title)) },
+            text = { Text(stringResource(R.string.dialog_clear_chat_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showClearConfirmDialog = false
+                    clearAnimating = true
+                }) {
+                    Text(stringResource(R.string.dialog_yes))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmDialog = false }) {
+                    Text(stringResource(R.string.dialog_no))
+                }
+            }
+        )
+    }
 
     if (state.showMetrics && state.chatMetrics != null) {
         ModalBottomSheet(
@@ -122,6 +148,12 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = stringResource(R.string.cd_settings)
+                        )
+                    }
                     IconButton(
                         onClick = { viewModel.onIntent(ChatIntent.ToggleMetrics) },
                         enabled = state.chatMetrics != null
@@ -137,7 +169,7 @@ fun ChatScreen(
                         )
                     }
                     IconButton(
-                        onClick = { clearAnimating = true },
+                        onClick = { showClearConfirmDialog = true },
                         enabled = state.messages.isNotEmpty() && !state.isLoading
                     ) {
                         Icon(

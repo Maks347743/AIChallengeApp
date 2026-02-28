@@ -9,7 +9,7 @@ import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRep
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
 import com.example.aichallengeapp.feature.settings.domain.model.ChatSettings
-import com.example.aichallengeapp.feature.settings.domain.repository.SettingsRepository
+import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 class ChatViewModel(
     private val chatId: String,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
-    private val settingsRepository: SettingsRepository,
+    private val settingsRepository: ChatSettingsRepository,
     private val sessionRepository: ChatSessionRepository,
     private val metricsRepository: ChatMetricsRepository
 ) : ViewModel() {
@@ -75,7 +75,7 @@ class ChatViewModel(
         }
 
         viewModelScope.launch {
-            val settings = settingsRepository.load()
+            val settings = settingsRepository.load(chatId)
             val doSummary = settings.summaryEnabled
                 && existingMessages.size > settings.maxRecentMessages
             if (doSummary) {
@@ -100,13 +100,16 @@ class ChatViewModel(
                     role = ChatMessage.ROLE_ASSISTANT,
                     content = result.message
                 )
-                _state.update {
-                    it.copy(
-                        messages = it.messages + assistantMessage,
-                        isLoading = false
-                    )
+                val messagesWithResponse = _state.value.messages + assistantMessage
+                val finalMessages = if (settings.slidingWindowEnabled
+                    && messagesWithResponse.size > settings.slidingWindowSize
+                ) {
+                    messagesWithResponse.takeLast(settings.slidingWindowSize)
+                } else {
+                    messagesWithResponse
                 }
-                persistSession(_state.value.messages)
+                _state.update { it.copy(messages = finalMessages, isLoading = false) }
+                persistSession(finalMessages)
 
                 val currentTotal = _state.value.chatMetrics?.totalTokens ?: 0
                 val newTotal = currentTotal + result.metrics.promptTokens + result.metrics.completionTokens

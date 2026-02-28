@@ -15,4 +15,6 @@ sealed interface SettingsIntent {
     data class ToggleSummary(val enabled: Boolean) : SettingsIntent
     data class UpdateSummaryRecentMessages(val value: String) : SettingsIntent
     data class UpdateSummaryMaxTokens(val value: String) : SettingsIntent
+    data class ToggleSlidingWindow(val enabled: Boolean) : SettingsIntent
+    data class UpdateSlidingWindowSize(val value: String) : SettingsIntent
 }
