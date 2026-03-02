@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.aichallengeapp.feature.chat"
+    namespace = "com.example.aichallengeapp.feature.settings"
     compileSdk = 36
     defaultConfig { minSdk = 24 }
     compileOptions {
@@ -17,22 +17,13 @@ android {
 
 dependencies {
     implementation(project(":core:database"))
-    implementation(project(":feature:chat-settings"))
-    implementation(project(":feature:settings"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.okhttp)
-    implementation(libs.ktor.client.content.negotiation)
-    implementation(libs.ktor.serialization.kotlinx.json)
-    implementation(libs.ktor.client.logging)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.kotlinx.coroutines.android)
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)

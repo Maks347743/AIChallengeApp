@@ -61,9 +61,10 @@ android {
 
 dependencies {
     implementation(project(":core:database"))
-    implementation(project(":feature:settings"))
+    implementation(project(":feature:chat-settings"))
     implementation(project(":feature:chat"))
     implementation(project(":feature:chat-list"))
+    implementation(project(":feature:settings"))
 
     // AndroidX
     implementation(libs.androidx.core.ktx)

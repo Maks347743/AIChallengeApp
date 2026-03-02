@@ -8,6 +8,7 @@ import com.example.aichallengeapp.core.database.domain.model.ChatSession
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
+import com.example.aichallengeapp.feature.globalsettings.domain.repository.GlobalSettingsRepository
 import com.example.aichallengeapp.feature.settings.domain.model.ChatSettings
 import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +33,8 @@ class ChatViewModel(
     private val sendChatMessageUseCase: SendChatMessageUseCase,
     private val settingsRepository: ChatSettingsRepository,
     private val sessionRepository: ChatSessionRepository,
-    private val metricsRepository: ChatMetricsRepository
+    private val metricsRepository: ChatMetricsRepository,
+    private val globalSettingsRepository: GlobalSettingsRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ChatState())
@@ -231,25 +233,31 @@ class ChatViewModel(
 
         viewModelScope.launch {
             val settings = settingsRepository.load(activeChatId)
+            val globalSettings = globalSettingsRepository.load()
+            val globalPrefix = globalSettings.systemPromptPrefix
             val doStickyFacts = settings.stickyFactsEnabled
                 && existingMessages.size > settings.stickyFactsRecentMessages
             val doSummary = settings.summaryEnabled
                 && existingMessages.size > settings.retainedMessageCount
             if (doStickyFacts) {
-                sendMessageWithStickyFacts(settings, existingMessages, userMessage)
+                sendMessageWithStickyFacts(settings, globalPrefix, existingMessages, userMessage)
             } else if (doSummary) {
-                sendMessageWithSummary(settings, existingMessages, userMessage)
+                sendMessageWithSummary(settings, globalPrefix, existingMessages, userMessage)
             } else {
-                sendMessageNormal(settings)
+                sendMessageNormal(settings, globalPrefix)
             }
         }
     }
 
+    private fun effectiveSystemPrompt(globalPrefix: String, chatPrompt: String): String =
+        if (globalPrefix.isBlank()) chatPrompt else "$globalPrefix\n\n$chatPrompt"
+
     private suspend fun sendMessageNormal(
-        settings: ChatSettings
+        settings: ChatSettings,
+        globalPrefix: String
     ) {
         val fullHistory = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = settings.systemPrompt))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt)))
             addAll(_state.value.messages)
         }
 
@@ -293,6 +301,7 @@ class ChatViewModel(
 
     private suspend fun sendMessageWithSummary(
         settings: ChatSettings,
+        globalPrefix: String,
         existingMessages: List<ChatMessage>,
         userMessage: ChatMessage
     ) {
@@ -339,7 +348,7 @@ class ChatViewModel(
         val summaryContent = summaryResult.getOrNull()!!.message
 
         val mainHistory = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${settings.systemPrompt}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_SUMMARY })
             add(userMessage)
         }
@@ -380,6 +389,7 @@ class ChatViewModel(
 
     private suspend fun sendMessageWithStickyFacts(
         settings: ChatSettings,
+        globalPrefix: String,
         existingMessages: List<ChatMessage>,
         userMessage: ChatMessage
     ) {
@@ -411,7 +421,7 @@ class ChatViewModel(
         val factsContent = factsResult.getOrNull()!!.message
 
         val mainHistory = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = settings.systemPrompt))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt)))
             add(ChatMessage(role = ChatMessage.ROLE_USER, content = factsContent))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_FACTS })
             add(userMessage)

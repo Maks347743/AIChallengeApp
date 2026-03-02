@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -36,6 +38,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun ChatListScreen(
     onNavigateToChat: (chatId: String, branchIndex: Int) -> Unit,
+    onNavigateToGlobalSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChatListViewModel = koinViewModel()
 ) {
@@ -50,6 +53,14 @@ fun ChatListScreen(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
+                actions = {
+                    IconButton(onClick = onNavigateToGlobalSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = stringResource(R.string.cd_global_settings)
+                        )
+                    }
+                }
             )
         },
         floatingActionButton = {

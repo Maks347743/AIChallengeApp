@@ -1,19 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="title_settings">Настройки</string>
-    <string name="cd_back">Назад</string>
-    <string name="label_system_prompt">Системный промпт</string>
-    <string name="label_max_tokens">Max Tokens</string>
-    <string name="hint_max_tokens">По умолчанию (без ограничения)</string>
-    <string name="label_temperature">Температура</string>
-    <string name="temperature_min">0.0</string>
-    <string name="temperature_max">2.0</string>
-    <string name="label_model">Модель</string>
-    <string name="label_summary_mode">Режим суммаризации</string>
-    <string name="label_summary_recent_messages">Последних сообщений без суммаризации</string>
-    <string name="label_summary_max_tokens">Макс. токенов в суммаризации</string>
-    <string name="label_sliding_window_mode">Режим Sliding Window</string>
-    <string name="label_sliding_window_size">Размер окна (кол-во сообщений)</string>
-    <string name="label_sticky_facts_mode">Sticky Facts</string>
-    <string name="label_sticky_facts_recent_messages">Сообщений без обработки</string>
+    <string name="title_global_settings">Общие настройки</string>
+    <string name="label_global_system_prompt">Системный промпт (глобальный)</string>
+    <string name="hint_global_system_prompt">Текст добавляется в начало системного промпта каждого чата</string>
+    <string name="cd_back_global_settings">Назад</string>
 </resources>

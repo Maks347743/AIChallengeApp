@@ -22,6 +22,8 @@ import com.example.aichallengeapp.feature.chat.ChatRoute
 import com.example.aichallengeapp.feature.chat.presentation.ChatScreen
 import com.example.aichallengeapp.feature.chatlist.ChatListRoute
 import com.example.aichallengeapp.feature.chatlist.presentation.ChatListScreen
+import com.example.aichallengeapp.feature.globalsettings.GlobalSettingsRoute
+import com.example.aichallengeapp.feature.globalsettings.presentation.GlobalSettingsScreen
 import com.example.aichallengeapp.feature.settings.SettingsRoute
 import com.example.aichallengeapp.feature.settings.presentation.SettingsScreen
 import com.example.aichallengeapp.ui.theme.AIChallengeAppTheme
@@ -64,6 +66,13 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             entry<ChatListRoute> {
                 ChatListScreen(
                     onNavigateToChat = { chatId, branchIndex -> backStack.add(ChatRoute(chatId, branchIndex)) },
+                    onNavigateToGlobalSettings = { backStack.add(GlobalSettingsRoute) },
+                    modifier = modifier
+                )
+            }
+            entry<GlobalSettingsRoute> {
+                GlobalSettingsScreen(
+                    onNavigateBack = { backStack.removeLastOrNull() },
                     modifier = modifier
                 )
             }
