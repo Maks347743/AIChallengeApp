@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title_user_preferences">Профили пользователя</string>
+    <string name="title_user_profile_edit">Профиль пользователя</string>
+    <string name="btn_save">Сохранить</string>
+    <string name="label_profile_name">Имя</string>
+    <string name="label_profile_description">Описание</string>
+    <string name="empty_profiles">Нет профилей</string>
+    <string name="empty_profiles_hint">Создайте первый профиль</string>
+    <string name="cd_back">Назад</string>
+    <string name="cd_add_profile">Добавить профиль</string>
+    <string name="cd_delete_profile">Удалить профиль</string>
+    <string name="dialog_delete_profile_title">Удалить профиль?</string>
+    <string name="dialog_delete_profile_message">Профиль «%s» будет удалён без возможности восстановления.</string>
+    <string name="dialog_yes">Удалить</string>
+    <string name="dialog_no">Отмена</string>
+</resources>

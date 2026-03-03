@@ -7,14 +7,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [ChatSessionEntity::class, ChatMetricsEntity::class],
-    version = 5,
+    entities = [ChatSessionEntity::class, ChatMetricsEntity::class, UserProfileEntity::class],
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun chatSessionDao(): ChatSessionDao
     abstract fun chatMetricsDao(): ChatMetricsDao
+    abstract fun userProfileDao(): UserProfileDao
 }
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -51,5 +52,22 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
 val MIGRATION_4_5 = object : Migration(4, 5) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `chat_sessions` ADD COLUMN `current_task` TEXT")
+    }
+}
+
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `user_profiles` (
+                `id` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `description` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent()
+        )
+        db.execSQL("ALTER TABLE `chat_sessions` ADD COLUMN `profile_id` TEXT")
     }
 }

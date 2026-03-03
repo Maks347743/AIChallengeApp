@@ -22,10 +22,12 @@ import com.example.aichallengeapp.feature.chat.ChatRoute
 import com.example.aichallengeapp.feature.chat.presentation.ChatScreen
 import com.example.aichallengeapp.feature.chatlist.ChatListRoute
 import com.example.aichallengeapp.feature.chatlist.presentation.ChatListScreen
-import com.example.aichallengeapp.feature.globalsettings.GlobalSettingsRoute
-import com.example.aichallengeapp.feature.globalsettings.presentation.GlobalSettingsScreen
 import com.example.aichallengeapp.feature.settings.SettingsRoute
 import com.example.aichallengeapp.feature.settings.presentation.SettingsScreen
+import com.example.aichallengeapp.feature.userpreferences.UserPreferencesRoute
+import com.example.aichallengeapp.feature.userpreferences.UserProfileEditRoute
+import com.example.aichallengeapp.feature.userpreferences.presentation.profileedit.UserProfileEditScreen
+import com.example.aichallengeapp.feature.userpreferences.presentation.profilelist.UserProfileListScreen
 import com.example.aichallengeapp.ui.theme.AIChallengeAppTheme
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -65,13 +67,23 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         entryProvider = entryProvider {
             entry<ChatListRoute> {
                 ChatListScreen(
-                    onNavigateToChat = { chatId, branchIndex -> backStack.add(ChatRoute(chatId, branchIndex)) },
-                    onNavigateToGlobalSettings = { backStack.add(GlobalSettingsRoute) },
+                    onNavigateToChat = { chatId, branchIndex, profileId ->
+                        backStack.add(ChatRoute(chatId, branchIndex, profileId))
+                    },
+                    onNavigateToUserPreferences = { backStack.add(UserPreferencesRoute) },
                     modifier = modifier
                 )
             }
-            entry<GlobalSettingsRoute> {
-                GlobalSettingsScreen(
+            entry<UserPreferencesRoute> {
+                UserProfileListScreen(
+                    onNavigateBack = { backStack.removeLastOrNull() },
+                    onNavigateToEditProfile = { profileId -> backStack.add(UserProfileEditRoute(profileId)) },
+                    modifier = modifier
+                )
+            }
+            entry<UserProfileEditRoute> { entry ->
+                UserProfileEditScreen(
+                    profileId = entry.profileId,
                     onNavigateBack = { backStack.removeLastOrNull() },
                     modifier = modifier
                 )
@@ -81,7 +93,9 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                     onNavigateBack = { backStack.removeLastOrNull() },
                     onNavigateToSettings = { activeChatId -> backStack.add(SettingsRoute(activeChatId)) },
                     modifier = modifier,
-                    viewModel = koinViewModel(key = entry.chatId) { parametersOf(entry.chatId, entry.branchIndex) }
+                    viewModel = koinViewModel(key = entry.chatId) {
+                        parametersOf(entry.chatId, entry.branchIndex, entry.profileId)
+                    }
                 )
             }
             entry<SettingsRoute> { entry ->

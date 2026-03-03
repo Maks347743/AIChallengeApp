@@ -8,8 +8,8 @@ import com.example.aichallengeapp.core.database.domain.model.ChatMetrics
 import com.example.aichallengeapp.core.database.domain.model.ChatSession
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
+import com.example.aichallengeapp.core.database.domain.repository.UserProfileRepository
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
-import com.example.aichallengeapp.feature.globalsettings.domain.repository.GlobalSettingsRepository
 import com.example.aichallengeapp.feature.settings.domain.model.ChatSettings
 import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,11 +40,12 @@ private const val TASK_DETECTOR_SYSTEM_PROMPT =
 class ChatViewModel(
     private val chatId: String,
     private val initialBranchIndex: Int,
+    private val initialProfileId: String?,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
     private val settingsRepository: ChatSettingsRepository,
     private val sessionRepository: ChatSessionRepository,
     private val metricsRepository: ChatMetricsRepository,
-    private val globalSettingsRepository: GlobalSettingsRepository
+    private val userProfileRepository: UserProfileRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ChatState())
@@ -55,11 +56,13 @@ class ChatViewModel(
 
     private var currentGroupId: String? = null
     private var currentTask: String? = null
+    private var currentProfileId: String? = null
 
     init {
         viewModelScope.launch {
             val session = sessionRepository.getSession(chatId)
             if (session != null) {
+                currentProfileId = session.profileId ?: initialProfileId
                 val groupId = session.checkpointGroupId
                 if (groupId != null && session.branchIndex != initialBranchIndex) {
                     // Defensive: ViewModel reuse — find the session matching the requested branch
@@ -70,6 +73,7 @@ class ChatViewModel(
                         _state.update { it.copy(messages = target.messages, activeChatId = target.id) }
                         currentTask = target.currentTask
                         loadBranches(groupId, initialBranchIndex)
+                        loadProfileName()
                         return@launch
                     }
                 }
@@ -77,14 +81,21 @@ class ChatViewModel(
                 currentTask = session.currentTask
                 if (groupId != null) loadBranches(groupId, session.branchIndex)
             } else {
+                currentProfileId = initialProfileId
                 _state.update { it.copy(activeChatId = chatId) }
             }
+            loadProfileName()
         }
         viewModelScope.launch {
             _activeChatId
                 .flatMapLatest { id -> metricsRepository.observeMetrics(id) }
                 .collect { metrics -> _state.update { it.copy(chatMetrics = metrics) } }
         }
+    }
+
+    private suspend fun loadProfileName() {
+        val profile = currentProfileId?.let { userProfileRepository.getById(it) }
+        _state.update { it.copy(currentProfileName = profile?.name) }
     }
 
     fun onIntent(intent: ChatIntent) {
@@ -193,7 +204,8 @@ class ChatViewModel(
                     updatedAt = now,
                     settingsJson = current.settingsJson,
                     checkpointGroupId = groupId,
-                    branchIndex = nextBranchIndex
+                    branchIndex = nextBranchIndex,
+                    profileId = currentProfileId
                 )
             )
             loadBranches(groupId, currentBranchIndex)
@@ -248,8 +260,8 @@ class ChatViewModel(
 
         viewModelScope.launch {
             val settings = settingsRepository.load(activeChatId)
-            val globalSettings = globalSettingsRepository.load()
-            val globalPrefix = globalSettings.systemPromptPrefix
+            val profile = currentProfileId?.let { userProfileRepository.getById(it) }
+            val globalPrefix = profile?.description ?: ""
 
             val detectedTask = detectCurrentTask(existingMessages, userMessage, settings.model.id)
             if (detectedTask != null) {
@@ -554,8 +566,9 @@ class ChatViewModel(
             val session = existing?.copy(
                 messages = messages,
                 updatedAt = System.currentTimeMillis(),
-                currentTask = currentTask
-            ) ?: ChatSession(id = activeChatId, messages = messages, currentTask = currentTask)
+                currentTask = currentTask,
+                profileId = currentProfileId
+            ) ?: ChatSession(id = activeChatId, messages = messages, currentTask = currentTask, profileId = currentProfileId)
             sessionRepository.upsertSession(session)
         }
     }

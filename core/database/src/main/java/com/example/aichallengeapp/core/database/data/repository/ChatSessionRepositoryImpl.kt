@@ -58,7 +58,8 @@ class ChatSessionRepositoryImpl(
         settingsJson = settingsJson,
         checkpointGroupId = checkpointGroupId,
         branchIndex = branchIndex,
-        currentTask = currentTask
+        currentTask = currentTask,
+        profileId = profileId
     )
 
     private fun ChatSession.toEntity() = ChatSessionEntity(
@@ -69,6 +70,7 @@ class ChatSessionRepositoryImpl(
         settingsJson = settingsJson,
         checkpointGroupId = checkpointGroupId,
         branchIndex = branchIndex,
-        currentTask = currentTask
+        currentTask = currentTask,
+        profileId = profileId
     )
 }

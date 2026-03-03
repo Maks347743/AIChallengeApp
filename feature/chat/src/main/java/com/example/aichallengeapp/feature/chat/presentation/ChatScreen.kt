@@ -143,7 +143,21 @@ fun ChatScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.title_chat)) },
+                title = {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.title_chat),
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        state.currentProfileName?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer

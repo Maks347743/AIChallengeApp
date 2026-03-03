@@ -57,5 +57,5 @@ val chatModule = module {
 
     factory { SendChatMessageUseCase(get()) }
 
-    viewModel { params -> ChatViewModel(params.get(), params.get(), get(), get(), get(), get(), get()) }
+    viewModel { params -> ChatViewModel(params.get(), params.get(), params.get(), get(), get(), get(), get(), get()) }
 }

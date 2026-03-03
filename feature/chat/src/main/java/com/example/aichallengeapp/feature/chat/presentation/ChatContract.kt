@@ -23,5 +23,6 @@ data class ChatState(
     val showMetrics: Boolean = false,
     val branches: List<BranchInfo> = emptyList(),
     val activeBranchIndex: Int = 0,
-    val activeChatId: String = ""
+    val activeChatId: String = "",
+    val currentProfileName: String? = null
 )

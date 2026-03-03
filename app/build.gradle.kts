@@ -64,7 +64,7 @@ dependencies {
     implementation(project(":feature:chat-settings"))
     implementation(project(":feature:chat"))
     implementation(project(":feature:chat-list"))
-    implementation(project(":feature:settings"))
+    implementation(project(":feature:user-preferences"))
 
     // AndroidX
     implementation(libs.androidx.core.ktx)
