@@ -9,7 +9,8 @@ data class ChatSession(
     val updatedAt: Long = System.currentTimeMillis(),
     val settingsJson: String? = null,
     val checkpointGroupId: String? = null,
-    val branchIndex: Int = 0
+    val branchIndex: Int = 0,
+    val currentTask: String? = null
 ) {
     fun previewText(wordCount: Int = CHAT_SESSION_TITLE_WORDS_COUNT): String {
         val last = messages.lastOrNull { it.role != ChatMessage.ROLE_SYSTEM } ?: return "New Chat"

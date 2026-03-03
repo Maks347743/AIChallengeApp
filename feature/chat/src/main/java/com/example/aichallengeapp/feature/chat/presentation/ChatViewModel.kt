@@ -1,5 +1,6 @@
 package com.example.aichallengeapp.feature.chat.presentation
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
@@ -20,12 +21,21 @@ import kotlinx.coroutines.launch
 
 private const val MAX_BRANCHES = 2
 private const val FIRST_BRANCH_INDEX = 1
+private const val MEMORY_LOG_TAG = "MemoryLayers"
+private const val MSG_PREVIEW_LEN = 120
 
 private const val ROLE_LABEL_ASSISTANT = "Ассистент"
 private const val ROLE_LABEL_USER = "Пользователь"
 private const val SUMMARIZER_SYSTEM_PROMPT = "Ты краткий суммаризатор переписок."
 private const val FACTS_EXTRACTOR_SYSTEM_PROMPT =
     "Ты краткий суммаризатор переписок, который может вычленять важные данные из переписки"
+private const val TASK_DETECTOR_SYSTEM_PROMPT =
+    "Ты отлично понимаешь, когда меняется задача или когда начинается новая задача. " +
+    "Если в диалоге меньше 3 сообщений, то это всегда новая задача. " +
+    "Проанализируй следующие сообщения. Проверь это новая задача или нет. " +
+    "Если задача новая, то в ответ пришли основные факты по задаче, цель, ограничения (если есть) и т.д. " +
+    "в формате ключ:значение. Только ключ:значение и ничего больше. Очень кратко. " +
+    "Если задача не новая — ответь только словом NO_CHANGE."
 
 class ChatViewModel(
     private val chatId: String,
@@ -44,6 +54,7 @@ class ChatViewModel(
     private val activeChatId: String get() = _activeChatId.value
 
     private var currentGroupId: String? = null
+    private var currentTask: String? = null
 
     init {
         viewModelScope.launch {
@@ -57,11 +68,13 @@ class ChatViewModel(
                     if (target != null) {
                         _activeChatId.value = target.id
                         _state.update { it.copy(messages = target.messages, activeChatId = target.id) }
+                        currentTask = target.currentTask
                         loadBranches(groupId, initialBranchIndex)
                         return@launch
                     }
                 }
                 _state.update { it.copy(messages = session.messages, activeChatId = chatId) }
+                currentTask = session.currentTask
                 if (groupId != null) loadBranches(groupId, session.branchIndex)
             } else {
                 _state.update { it.copy(activeChatId = chatId) }
@@ -102,6 +115,7 @@ class ChatViewModel(
         viewModelScope.launch {
             val session = sessionRepository.getSession(sessionId) ?: return@launch
             _activeChatId.value = sessionId
+            currentTask = session.currentTask
             _state.update {
                 it.copy(
                     messages = session.messages,
@@ -187,6 +201,7 @@ class ChatViewModel(
     }
 
     private fun clearChat() {
+        currentTask = null
         _state.update { it.copy(showMetrics = false, messages = emptyList(), error = null) }
         viewModelScope.launch {
             metricsRepository.deleteMetrics(activeChatId)
@@ -235,6 +250,14 @@ class ChatViewModel(
             val settings = settingsRepository.load(activeChatId)
             val globalSettings = globalSettingsRepository.load()
             val globalPrefix = globalSettings.systemPromptPrefix
+
+            val detectedTask = detectCurrentTask(existingMessages, userMessage, settings.model.id)
+            if (detectedTask != null) {
+                currentTask = detectedTask
+            }
+
+            logMemoryLayers(globalPrefix, existingMessages, userMessage)
+
             val doStickyFacts = settings.stickyFactsEnabled
                 && existingMessages.size > settings.stickyFactsRecentMessages
             val doSummary = settings.summaryEnabled
@@ -249,8 +272,78 @@ class ChatViewModel(
         }
     }
 
-    private fun effectiveSystemPrompt(globalPrefix: String, chatPrompt: String): String =
-        if (globalPrefix.isBlank()) chatPrompt else "$globalPrefix\n\n$chatPrompt"
+    private fun logMemoryLayers(
+        globalPrefix: String,
+        history: List<ChatMessage>,
+        newUserMessage: ChatMessage
+    ) {
+        val sep = "─".repeat(52)
+        Log.d(MEMORY_LOG_TAG, "┌$sep")
+        Log.d(MEMORY_LOG_TAG, "│  MEMORY LAYERS — before system prompt build")
+        Log.d(MEMORY_LOG_TAG, "├─── [1] LONG_TERM_MEMORY (global prefix) ${"─".repeat(10)}")
+        if (globalPrefix.isBlank()) {
+            Log.d(MEMORY_LOG_TAG, "│  <empty>")
+        } else {
+            globalPrefix.lines().forEach { Log.d(MEMORY_LOG_TAG, "│  $it") }
+        }
+        Log.d(MEMORY_LOG_TAG, "├─── [2] SHORT_TERM_MEMORY (${history.size} messages) ${"─".repeat(15)}")
+        history.forEach { msg ->
+            val label = when (msg.role) {
+                ChatMessage.ROLE_USER      -> "USER"
+                ChatMessage.ROLE_ASSISTANT -> "ASST"
+                ChatMessage.ROLE_SYSTEM    -> "SYS "
+                ChatMessage.ROLE_SUMMARY   -> "SUMM"
+                ChatMessage.ROLE_FACTS     -> "FACT"
+                else                       -> msg.role.take(4).uppercase()
+            }
+            val preview = msg.content.replace('\n', ' ').take(MSG_PREVIEW_LEN)
+            val ellipsis = if (msg.content.length > MSG_PREVIEW_LEN) "…" else ""
+            Log.d(MEMORY_LOG_TAG, "│  [$label] $preview$ellipsis")
+        }
+        val newPreview = newUserMessage.content.replace('\n', ' ').take(MSG_PREVIEW_LEN)
+        val newEllipsis = if (newUserMessage.content.length > MSG_PREVIEW_LEN) "…" else ""
+        Log.d(MEMORY_LOG_TAG, "│  [USER] (new) $newPreview$newEllipsis")
+        Log.d(MEMORY_LOG_TAG, "├─── [3] CURRENT_TASK_MEMORY ${"─".repeat(23)}")
+        if (currentTask.isNullOrBlank()) {
+            Log.d(MEMORY_LOG_TAG, "│  <empty>")
+        } else {
+            currentTask!!.lines().forEach { Log.d(MEMORY_LOG_TAG, "│  $it") }
+        }
+        Log.d(MEMORY_LOG_TAG, "└$sep")
+    }
+
+    private fun effectiveSystemPrompt(globalPrefix: String, chatPrompt: String): String {
+        val base = if (globalPrefix.isBlank()) chatPrompt else "$globalPrefix\n\n$chatPrompt"
+        return if (currentTask.isNullOrBlank()) base else "$base\n\nТекущая задача:\n$currentTask"
+    }
+
+    private suspend fun detectCurrentTask(
+        existingMessages: List<ChatMessage>,
+        newUserMessage: ChatMessage,
+        model: String
+    ): String? {
+        val contextMessages = existingMessages
+            .filter { it.role == ChatMessage.ROLE_USER || it.role == ChatMessage.ROLE_ASSISTANT }
+            .takeLast(3)
+        val contextText = buildString {
+            contextMessages.forEach { msg ->
+                val label = if (msg.role == ChatMessage.ROLE_ASSISTANT) ROLE_LABEL_ASSISTANT else ROLE_LABEL_USER
+                append("$label: ${msg.content}\n")
+            }
+            append("$ROLE_LABEL_USER: ${newUserMessage.content}\n")
+        }
+        val result = sendChatMessageUseCase(
+            messages = listOf(
+                ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = TASK_DETECTOR_SYSTEM_PROMPT),
+                ChatMessage(role = ChatMessage.ROLE_USER, content = contextText)
+            ),
+            maxTokens = null,
+            temperature = null,
+            model = model
+        )
+        return result.getOrNull()?.message?.trim()
+            ?.takeIf { it.isNotBlank() && it != "NO_CHANGE" }
+    }
 
     private suspend fun sendMessageNormal(
         settings: ChatSettings,
@@ -458,8 +551,11 @@ class ChatViewModel(
             sessionRepository.deleteSession(activeChatId)
         } else {
             val existing = sessionRepository.getSession(activeChatId)
-            val session = existing?.copy(messages = messages, updatedAt = System.currentTimeMillis())
-                ?: ChatSession(id = activeChatId, messages = messages)
+            val session = existing?.copy(
+                messages = messages,
+                updatedAt = System.currentTimeMillis(),
+                currentTask = currentTask
+            ) ?: ChatSession(id = activeChatId, messages = messages, currentTask = currentTask)
             sessionRepository.upsertSession(session)
         }
     }
