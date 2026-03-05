@@ -605,6 +605,38 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
         return
     }
 
+    if (message.role == ChatMessage.ROLE_CONSTRAINT_VIOLATION_ASSISTANT ||
+        message.role == ChatMessage.ROLE_CONSTRAINT_VIOLATION_USER
+    ) {
+        Card(
+            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
+            ) {
+                Text(
+                    text = stringResource(R.string.label_constraint_violation),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(dimensionResource(R.dimen.chat_bubble_label_spacing)))
+                Text(
+                    text = message.content,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+        return
+    }
+
     val isUser = message.role == ChatMessage.ROLE_USER
     val cornerLarge = dimensionResource(R.dimen.chat_bubble_corner_large)
     val cornerSmall = dimensionResource(R.dimen.chat_bubble_corner_small)

@@ -2,10 +2,12 @@ package com.example.aichallengeapp.core.database.data.repository
 
 import com.example.aichallengeapp.core.database.data.db.UserProfileDao
 import com.example.aichallengeapp.core.database.data.db.UserProfileEntity
+import com.example.aichallengeapp.core.database.domain.model.Constraint
 import com.example.aichallengeapp.core.database.domain.model.UserProfile
 import com.example.aichallengeapp.core.database.domain.repository.UserProfileRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
 
 class UserProfileRepositoryImpl(
     private val dao: UserProfileDao
@@ -24,17 +26,23 @@ class UserProfileRepositoryImpl(
         dao.getById(profileId)?.let { dao.delete(it) }
     }
 
+    private val json = Json { ignoreUnknownKeys = true }
+
     private fun UserProfileEntity.toDomain() = UserProfile(
         id = id,
         name = name,
         description = description,
-        createdAt = createdAt
+        createdAt = createdAt,
+        constraints = constraintsJson?.let {
+            runCatching { json.decodeFromString<List<Constraint>>(it) }.getOrDefault(emptyList())
+        } ?: emptyList()
     )
 
     private fun UserProfile.toEntity() = UserProfileEntity(
         id = id,
         name = name,
         description = description,
-        createdAt = createdAt
+        createdAt = createdAt,
+        constraintsJson = if (constraints.isEmpty()) null else json.encodeToString(constraints)
     )
 }

@@ -40,7 +40,12 @@ class ChatRepositoryImpl(
                 model = model,
                 messages = messages.map {
                     MessageDto(
-                        role = if (it.role == ChatMessage.ROLE_SUMMARY) ChatMessage.ROLE_USER else it.role,
+                        role = when (it.role) {
+                            ChatMessage.ROLE_SUMMARY -> ChatMessage.ROLE_USER
+                            ChatMessage.ROLE_CONSTRAINT_VIOLATION_ASSISTANT -> ChatMessage.ROLE_ASSISTANT
+                            ChatMessage.ROLE_CONSTRAINT_VIOLATION_USER -> ChatMessage.ROLE_USER
+                            else -> it.role
+                        },
                         content = it.content
                     )
                 },

@@ -10,6 +10,7 @@ import com.example.aichallengeapp.core.database.data.db.MIGRATION_4_5
 import com.example.aichallengeapp.core.database.data.db.MIGRATION_5_6
 import com.example.aichallengeapp.core.database.data.db.MIGRATION_6_7
 import com.example.aichallengeapp.core.database.data.db.MIGRATION_7_8
+import com.example.aichallengeapp.core.database.data.db.MIGRATION_8_9
 import com.example.aichallengeapp.core.database.data.repository.ChatMetricsRepositoryImpl
 import com.example.aichallengeapp.core.database.data.repository.ChatSessionRepositoryImpl
 import com.example.aichallengeapp.core.database.data.repository.UserProfileRepositoryImpl
@@ -22,7 +23,7 @@ import org.koin.dsl.module
 val databaseModule = module {
     single {
         Room.databaseBuilder(get<Context>(), AppDatabase::class.java, "app_db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
             .setQueryCoroutineContext(Dispatchers.IO)
             .build()
     }

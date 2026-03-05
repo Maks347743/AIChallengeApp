@@ -14,4 +14,5 @@
     <string name="dialog_yes">Да</string>
     <string name="dialog_no">Нет</string>
     <string name="cd_create_checkpoint">Create checkpoint</string>
+    <string name="label_constraint_violation">Нарушение ограничения</string>
 </resources>

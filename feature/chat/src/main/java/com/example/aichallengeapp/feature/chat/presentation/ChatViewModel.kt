@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
 import com.example.aichallengeapp.core.database.domain.model.ChatMetrics
 import com.example.aichallengeapp.core.database.domain.model.ChatSession
+import com.example.aichallengeapp.core.database.domain.model.Constraint
 import com.example.aichallengeapp.core.database.domain.model.TaskStage
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
+private const val MAX_CONSTRAINT_RETRIES = 3
 private const val MAX_BRANCHES = 2
 private const val FIRST_BRANCH_INDEX = 1
 private const val STAGE_LOG_TAG = "StageArtifacts"
@@ -83,14 +85,20 @@ private fun stagePrompt(stage: TaskStage) = when (stage) {
 private fun stageDetectorPrompt(stage: TaskStage) =
     "Проанализируй последнее сообщение пользователя и контекст. " +
     "Текущий этап задачи: ${stage.name}.\n\n" +
-    "Правила переходов (только явные действия пользователя):\n" +
+    "РАЗРЕШЁННЫЕ переходы (только явные действия пользователя):\n" +
     "- PLANNING → EXECUTION: пользователь явно одобряет план\n" +
     "- EXECUTION → EVALUATION: пользователь явно подтверждает завершение работы\n" +
     "- EVALUATION → DONE: пользователь даёт положительную оценку (хорошо, всё ок, отлично и т.п.)\n" +
     "- EVALUATION → EXECUTION: пользователь явно просит вернуться к выполнению\n" +
     "- EVALUATION → PLANNING: пользователь явно просит вернуться к планированию\n" +
-    "- EXECUTION → PLANNING: пользователь явно просит вернуться к планированию\n\n" +
+    "- EXECUTION → PLANNING: пользователь явно просит вернуться к планированию\n" +
     "- DONE → PLANNING: автоматически, это означает, что мы начали новую задачу\n\n" +
+    "ЗАПРЕЩЁННЫЕ переходы (НИКОГДА не выбирай их):\n" +
+    "- EXECUTION → DONE: ЗАПРЕЩЕНО. Из EXECUTION можно перейти ТОЛЬКО в EVALUATION или PLANNING.\n" +
+    "- PLANNING → DONE: ЗАПРЕЩЕНО.\n" +
+    "- PLANNING → EVALUATION: ЗАПРЕЩЕНО.\n\n" +
+    "Этап DONE достижим ТОЛЬКО из EVALUATION. Этап EVALUATION достижим ТОЛЬКО из EXECUTION.\n" +
+    "Если ни одно правило не подходит — отвечай NO_CHANGE.\n\n" +
     "Ответь ТОЛЬКО одним словом: PLANNING, EXECUTION, EVALUATION, DONE или NO_CHANGE."
 
 class ChatViewModel(
@@ -363,21 +371,23 @@ class ChatViewModel(
                 }
             }
 
+            val constraints = profile?.constraints ?: emptyList()
+
             val doStickyFacts = settings.stickyFactsEnabled
                 && existingMessages.size > settings.stickyFactsRecentMessages
             val doSummary = settings.summaryEnabled
                 && existingMessages.size > settings.retainedMessageCount
             if (doStickyFacts) {
-                sendMessageWithStickyFacts(settings, globalPrefix, existingMessages, userMessage)
+                sendMessageWithStickyFacts(settings, globalPrefix, existingMessages, userMessage, constraints)
             } else if (doSummary) {
-                sendMessageWithSummary(settings, globalPrefix, existingMessages, userMessage)
+                sendMessageWithSummary(settings, globalPrefix, existingMessages, userMessage, constraints)
             } else {
-                sendMessageNormal(settings, globalPrefix)
+                sendMessageNormal(settings, globalPrefix, constraints)
             }
         }
     }
 
-    private fun effectiveSystemPrompt(globalPrefix: String, chatPrompt: String): String {
+    private fun effectiveSystemPrompt(globalPrefix: String, chatPrompt: String, constraints: List<Constraint> = emptyList()): String {
         val allStages = TaskStage.entries
         val currentIndex = allStages.indexOf(currentTaskStage)
         val precedingStages = allStages.take(currentIndex)
@@ -387,6 +397,15 @@ class ChatViewModel(
         val parts = buildList {
             if (globalPrefix.isNotBlank()) add(globalPrefix)
             if (chatPrompt.isNotBlank()) add(chatPrompt)
+            if (constraints.isNotEmpty()) {
+                val block = buildString {
+                    append("ВАЖНО: Следующие ограничения ЗАПРЕЩЕНО нарушать:")
+                    constraints.forEachIndexed { i, c ->
+                        append("\n${i + 1}. ${c.name}: ${c.description}")
+                    }
+                }
+                add(block)
+            }
             add(stagePrompt(currentTaskStage))
             if (relevantArtifacts.isNotEmpty()) {
                 val artifactsSection = buildString {
@@ -463,7 +482,16 @@ class ChatViewModel(
         )
         val response = result.getOrNull()?.message?.trim() ?: return null
         if (response == "NO_CHANGE") return null
-        return runCatching { TaskStage.valueOf(response) }.getOrNull()
+        val proposed = runCatching { TaskStage.valueOf(response) }.getOrNull() ?: return null
+        if (!isTransitionAllowed(currentTaskStage, proposed)) return null
+        return proposed
+    }
+
+    private fun isTransitionAllowed(from: TaskStage, to: TaskStage): Boolean = when (from) {
+        TaskStage.PLANNING -> to == TaskStage.EXECUTION
+        TaskStage.EXECUTION -> to == TaskStage.EVALUATION || to == TaskStage.PLANNING
+        TaskStage.EVALUATION -> to == TaskStage.DONE || to == TaskStage.EXECUTION || to == TaskStage.PLANNING
+        TaskStage.DONE -> to == TaskStage.PLANNING
     }
 
     private suspend fun generateStageArtifact(
@@ -519,40 +547,43 @@ class ChatViewModel(
 
     private suspend fun sendMessageNormal(
         settings: ChatSettings,
-        globalPrefix: String
+        globalPrefix: String,
+        constraints: List<Constraint> = emptyList()
     ) {
         val fullHistory = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt)))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)))
             addAll(_state.value.messages)
         }
 
         sendChatMessageUseCase(fullHistory, settings.maxTokens, settings.temperature, settings.model.id)
             .onSuccess { result ->
-                val assistantMessage = ChatMessage(
-                    role = ChatMessage.ROLE_ASSISTANT,
-                    content = result.message
-                )
-                val messagesWithResponse = _state.value.messages + assistantMessage
-                val finalMessages = if (settings.slidingWindowEnabled
-                    && messagesWithResponse.size > settings.slidingWindowSize
-                ) {
-                    messagesWithResponse.takeLast(settings.slidingWindowSize)
-                } else {
-                    messagesWithResponse
-                }
-                _state.update { it.copy(messages = finalMessages, isLoading = false) }
-                persistSession(finalMessages)
-
-                val currentTotal = _state.value.chatMetrics?.totalTokens ?: 0
-                val newTotal = currentTotal + result.metrics.promptTokens + result.metrics.completionTokens
-                metricsRepository.upsertMetrics(
-                    ChatMetrics(
-                        chatId = activeChatId,
-                        lastRequestTokens = result.metrics.promptTokens,
-                        lastResponseTokens = result.metrics.completionTokens,
-                        totalTokens = newTotal
+                handleResponseWithConstraints(result.message, constraints, settings, globalPrefix) { finalContent ->
+                    val assistantMessage = ChatMessage(
+                        role = ChatMessage.ROLE_ASSISTANT,
+                        content = finalContent
                     )
-                )
+                    val messagesWithResponse = _state.value.messages + assistantMessage
+                    val finalMessages = if (settings.slidingWindowEnabled
+                        && messagesWithResponse.size > settings.slidingWindowSize
+                    ) {
+                        messagesWithResponse.takeLast(settings.slidingWindowSize)
+                    } else {
+                        messagesWithResponse
+                    }
+                    _state.update { it.copy(messages = finalMessages, isLoading = false, currentTaskStage = currentTaskStage, currentTask = currentTask) }
+                    persistSession(finalMessages)
+
+                    val currentTotal = _state.value.chatMetrics?.totalTokens ?: 0
+                    val newTotal = currentTotal + result.metrics.promptTokens + result.metrics.completionTokens
+                    metricsRepository.upsertMetrics(
+                        ChatMetrics(
+                            chatId = activeChatId,
+                            lastRequestTokens = result.metrics.promptTokens,
+                            lastResponseTokens = result.metrics.completionTokens,
+                            totalTokens = newTotal
+                        )
+                    )
+                }
             }
             .onFailure { throwable ->
                 _state.update {
@@ -568,7 +599,8 @@ class ChatViewModel(
         settings: ChatSettings,
         globalPrefix: String,
         existingMessages: List<ChatMessage>,
-        userMessage: ChatMessage
+        userMessage: ChatMessage,
+        constraints: List<Constraint> = emptyList()
     ) {
         val retainedMessageCount = settings.retainedMessageCount
         val olderMessages = existingMessages.dropLast(retainedMessageCount)
@@ -613,7 +645,7 @@ class ChatViewModel(
         val summaryContent = summaryResult.getOrNull()!!.message
 
         val mainHistory = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_SUMMARY })
             add(userMessage)
         }
@@ -625,22 +657,24 @@ class ChatViewModel(
         )
 
         mainResult.onSuccess { result ->
-            val summaryMessage = ChatMessage(role = ChatMessage.ROLE_SUMMARY, content = summaryContent)
-            val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = result.message)
-            val newMessages = listOf(summaryMessage) + recentMessages + userMessage + assistantMessage
-            _state.update { it.copy(messages = newMessages, isLoading = false) }
-            persistSession(newMessages)
+            handleResponseWithConstraints(result.message, constraints, settings, globalPrefix) { finalContent ->
+                val summaryMessage = ChatMessage(role = ChatMessage.ROLE_SUMMARY, content = summaryContent)
+                val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
+                val newMessages = listOf(summaryMessage) + recentMessages + userMessage + assistantMessage
+                _state.update { it.copy(messages = newMessages, isLoading = false, currentTaskStage = currentTaskStage, currentTask = currentTask) }
+                persistSession(newMessages)
 
-            val currentTotal = _state.value.chatMetrics?.totalTokens ?: 0
-            val newTotal = currentTotal + result.metrics.promptTokens + result.metrics.completionTokens
-            metricsRepository.upsertMetrics(
-                ChatMetrics(
-                    chatId = activeChatId,
-                    lastRequestTokens = result.metrics.promptTokens,
-                    lastResponseTokens = result.metrics.completionTokens,
-                    totalTokens = newTotal
+                val currentTotal = _state.value.chatMetrics?.totalTokens ?: 0
+                val newTotal = currentTotal + result.metrics.promptTokens + result.metrics.completionTokens
+                metricsRepository.upsertMetrics(
+                    ChatMetrics(
+                        chatId = activeChatId,
+                        lastRequestTokens = result.metrics.promptTokens,
+                        lastResponseTokens = result.metrics.completionTokens,
+                        totalTokens = newTotal
+                    )
                 )
-            )
+            }
         }
         mainResult.onFailure { throwable ->
             _state.update {
@@ -656,7 +690,8 @@ class ChatViewModel(
         settings: ChatSettings,
         globalPrefix: String,
         existingMessages: List<ChatMessage>,
-        userMessage: ChatMessage
+        userMessage: ChatMessage,
+        constraints: List<Constraint> = emptyList()
     ) {
         val recentMessages = existingMessages.takeLast(settings.stickyFactsRecentMessages)
         val olderMessages = existingMessages.dropLast(settings.stickyFactsRecentMessages)
@@ -686,7 +721,7 @@ class ChatViewModel(
         val factsContent = factsResult.getOrNull()!!.message
 
         val mainHistory = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt)))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)))
             add(ChatMessage(role = ChatMessage.ROLE_USER, content = factsContent))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_FACTS })
             add(userMessage)
@@ -694,28 +729,84 @@ class ChatViewModel(
         val mainResult = sendChatMessageUseCase(mainHistory, settings.maxTokens, settings.temperature, settings.model.id)
 
         mainResult.onSuccess { result ->
-            val factsMessage = ChatMessage(role = ChatMessage.ROLE_FACTS, content = factsContent)
-            val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = result.message)
-            val newMessages = listOf(factsMessage) +
-                recentMessages.filter { it.role != ChatMessage.ROLE_FACTS } +
-                userMessage + assistantMessage
-            _state.update { it.copy(messages = newMessages, isLoading = false) }
-            persistSession(newMessages)
+            handleResponseWithConstraints(result.message, constraints, settings, globalPrefix) { finalContent ->
+                val factsMessage = ChatMessage(role = ChatMessage.ROLE_FACTS, content = factsContent)
+                val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
+                val newMessages = listOf(factsMessage) +
+                    recentMessages.filter { it.role != ChatMessage.ROLE_FACTS } +
+                    userMessage + assistantMessage
+                _state.update { it.copy(messages = newMessages, isLoading = false, currentTaskStage = currentTaskStage, currentTask = currentTask) }
+                persistSession(newMessages)
 
-            val currentTotal = _state.value.chatMetrics?.totalTokens ?: 0
-            val newTotal = currentTotal + result.metrics.promptTokens + result.metrics.completionTokens
-            metricsRepository.upsertMetrics(
-                ChatMetrics(
-                    chatId = activeChatId,
-                    lastRequestTokens = result.metrics.promptTokens,
-                    lastResponseTokens = result.metrics.completionTokens,
-                    totalTokens = newTotal
+                val currentTotal = _state.value.chatMetrics?.totalTokens ?: 0
+                val newTotal = currentTotal + result.metrics.promptTokens + result.metrics.completionTokens
+                metricsRepository.upsertMetrics(
+                    ChatMetrics(
+                        chatId = activeChatId,
+                        lastRequestTokens = result.metrics.promptTokens,
+                        lastResponseTokens = result.metrics.completionTokens,
+                        totalTokens = newTotal
+                    )
                 )
-            )
+            }
         }
         mainResult.onFailure { throwable ->
             _state.update { it.copy(isLoading = false, error = throwable.message ?: "Unknown error") }
         }
+    }
+
+    private fun validateConstraints(response: String, constraints: List<Constraint>): List<Constraint> {
+        return constraints.filter { constraint ->
+            val regex = runCatching { Regex(constraint.regexPattern) }.getOrNull() ?: return@filter false
+            val matches = regex.containsMatchIn(response)
+            if (constraint.matchMeansViolation) matches else !matches
+        }
+    }
+
+    private suspend fun handleResponseWithConstraints(
+        responseMessage: String,
+        constraints: List<Constraint>,
+        settings: ChatSettings,
+        globalPrefix: String,
+        onSuccess: suspend (String) -> Unit
+    ) {
+        var currentResponse = responseMessage
+        var retryCount = 0
+
+        while (retryCount < MAX_CONSTRAINT_RETRIES) {
+            val violations = validateConstraints(currentResponse, constraints)
+            if (violations.isEmpty()) break
+
+            val violationNames = violations.joinToString(", ") { it.name }
+            val assistantMsg = ChatMessage(role = ChatMessage.ROLE_CONSTRAINT_VIOLATION_ASSISTANT, content = currentResponse)
+            val violationNotice = ChatMessage(
+                role = ChatMessage.ROLE_CONSTRAINT_VIOLATION_USER,
+                content = "Твой ответ нарушил следующие ограничения: $violationNames. Перегенерируй ответ, соблюдая все ограничения."
+            )
+            _state.update { it.copy(messages = it.messages + assistantMsg + violationNotice) }
+
+            val retryHistory = buildList {
+                add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)))
+                addAll(_state.value.messages)
+            }
+            val retryResult = sendChatMessageUseCase(retryHistory, settings.maxTokens, settings.temperature, settings.model.id)
+            if (retryResult.isFailure) {
+                _state.update { it.copy(isLoading = false, error = retryResult.exceptionOrNull()?.message ?: "Retry failed") }
+                return
+            }
+            currentResponse = retryResult.getOrNull()!!.message
+            retryCount++
+        }
+
+        if (retryCount == MAX_CONSTRAINT_RETRIES) {
+            val violations = validateConstraints(currentResponse, constraints)
+            if (violations.isNotEmpty()) {
+                val violationNames = violations.joinToString(", ") { it.name }
+                currentResponse += "\n\n[Не удалось выполнить ограничения после $MAX_CONSTRAINT_RETRIES попыток: $violationNames]"
+            }
+        }
+
+        onSuccess(currentResponse)
     }
 
     private suspend fun persistSession(messages: List<ChatMessage>) {

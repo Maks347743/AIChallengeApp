@@ -10,6 +10,13 @@
     <string name="cd_back">Назад</string>
     <string name="cd_add_profile">Добавить профиль</string>
     <string name="cd_delete_profile">Удалить профиль</string>
+    <string name="section_constraints">Ограничения</string>
+    <string name="label_constraint_name">Название ограничения</string>
+    <string name="label_constraint_description">Описание (для системного промпта)</string>
+    <string name="label_constraint_regex">Regex-паттерн</string>
+    <string name="label_match_means_violation">Совпадение = нарушение</string>
+    <string name="btn_add_constraint">Добавить ограничение</string>
+    <string name="cd_delete_constraint">Удалить ограничение</string>
     <string name="dialog_delete_profile_title">Удалить профиль?</string>
     <string name="dialog_delete_profile_message">Профиль «%s» будет удалён без возможности восстановления.</string>
     <string name="dialog_yes">Удалить</string>

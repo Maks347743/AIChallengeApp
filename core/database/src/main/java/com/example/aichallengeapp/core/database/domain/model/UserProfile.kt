@@ -4,5 +4,6 @@ data class UserProfile(
     val id: String,
     val name: String,
     val description: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val constraints: List<Constraint> = emptyList()
 )

@@ -2,6 +2,7 @@ package com.example.aichallengeapp.feature.userpreferences.presentation.profilee
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.aichallengeapp.core.database.domain.model.Constraint
 import com.example.aichallengeapp.core.database.domain.model.UserProfile
 import com.example.aichallengeapp.core.database.domain.repository.UserProfileRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +28,7 @@ class UserProfileEditViewModel(
                 val profile = userProfileRepository.getById(profileId)
                 if (profile != null) {
                     existingId = profile.id
-                    _state.update { it.copy(name = profile.name, description = profile.description) }
+                    _state.update { it.copy(name = profile.name, description = profile.description, constraints = profile.constraints) }
                 }
             }
         }
@@ -37,6 +38,15 @@ class UserProfileEditViewModel(
         when (intent) {
             is UserProfileEditIntent.UpdateName -> _state.update { it.copy(name = intent.name) }
             is UserProfileEditIntent.UpdateDescription -> _state.update { it.copy(description = intent.description) }
+            is UserProfileEditIntent.AddConstraint -> _state.update {
+                it.copy(constraints = it.constraints + Constraint(name = "", description = "", regexPattern = ""))
+            }
+            is UserProfileEditIntent.RemoveConstraint -> _state.update {
+                it.copy(constraints = it.constraints.toMutableList().apply { removeAt(intent.index) })
+            }
+            is UserProfileEditIntent.UpdateConstraint -> _state.update {
+                it.copy(constraints = it.constraints.toMutableList().apply { set(intent.index, intent.constraint) })
+            }
             is UserProfileEditIntent.Save -> save()
         }
     }
@@ -54,7 +64,8 @@ class UserProfileEditViewModel(
                         userProfileRepository.getById(id)?.createdAt ?: System.currentTimeMillis()
                     } else {
                         System.currentTimeMillis()
-                    }
+                    },
+                    constraints = current.constraints.filter { it.name.isNotBlank() || it.regexPattern.isNotBlank() }
                 )
             )
         }
