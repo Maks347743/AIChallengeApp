@@ -1,6 +1,5 @@
 package com.example.aichallengeapp.feature.chat.di
 
-import android.util.Log
 import com.example.aichallengeapp.core.database.domain.repository.ChatRepository
 import com.example.aichallengeapp.feature.chat.data.repository.ChatRepositoryImpl
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
@@ -17,6 +16,7 @@ import kotlinx.serialization.json.Json
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import timber.log.Timber
 
 private const val LOG_TAG = "KtorClient"
 
@@ -40,7 +40,7 @@ val chatModule = module {
                 level = LogLevel.BODY
                 logger = object : Logger {
                     override fun log(message: String) {
-                        message.chunked(3000).forEach { Log.d(LOG_TAG, it) }
+                        message.chunked(3000).forEach { Timber.tag(LOG_TAG).d(it) }
                     }
                 }
             }

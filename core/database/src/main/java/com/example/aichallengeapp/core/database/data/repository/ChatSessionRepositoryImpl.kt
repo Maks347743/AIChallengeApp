@@ -3,9 +3,13 @@ package com.example.aichallengeapp.core.database.data.repository
 import com.example.aichallengeapp.core.database.data.db.ChatSessionDao
 import com.example.aichallengeapp.core.database.data.db.ChatSessionEntity
 import com.example.aichallengeapp.core.database.domain.model.ChatSession
+import com.example.aichallengeapp.core.database.domain.model.TaskStage
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
+
+private val json = Json { ignoreUnknownKeys = true }
 
 class ChatSessionRepositoryImpl(
     private val dao: ChatSessionDao
@@ -59,7 +63,14 @@ class ChatSessionRepositoryImpl(
         checkpointGroupId = checkpointGroupId,
         branchIndex = branchIndex,
         currentTask = currentTask,
-        profileId = profileId
+        currentTaskStage = currentTaskStage?.let { runCatching { TaskStage.valueOf(it) }.getOrNull() } ?: TaskStage.PLANNING,
+        profileId = profileId,
+        stageArtifacts = stageArtifactsJson
+            ?.let { json.decodeFromString<Map<String, String>>(it) }
+            ?.mapKeys { (k, _) -> runCatching { TaskStage.valueOf(k) }.getOrNull() }
+            ?.filterKeys { it != null }
+            ?.mapKeys { (k, _) -> k!! }
+            ?: emptyMap()
     )
 
     private fun ChatSession.toEntity() = ChatSessionEntity(
@@ -71,6 +82,10 @@ class ChatSessionRepositoryImpl(
         checkpointGroupId = checkpointGroupId,
         branchIndex = branchIndex,
         currentTask = currentTask,
-        profileId = profileId
+        currentTaskStage = currentTaskStage.name,
+        profileId = profileId,
+        stageArtifactsJson = stageArtifacts
+            .takeIf { it.isNotEmpty() }
+            ?.let { json.encodeToString(it.mapKeys { (k, _) -> k.name }) }
     )
 }

@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -59,6 +58,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -80,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
 import com.example.aichallengeapp.core.database.domain.model.ChatMetrics
+import com.example.aichallengeapp.core.database.domain.model.TaskStage
 import com.example.aichallengeapp.feature.chat.R
 import com.example.aichallengeapp.feature.chat.ui.theme.SendBlue
 import com.example.aichallengeapp.feature.chat.ui.theme.SendBlueDark
@@ -223,6 +224,10 @@ fun ChatScreen(
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
+            if (state.currentTask != null) {
+                TaskStageIndicator(currentStage = state.currentTaskStage)
+            }
+
             if (state.branches.size > 1) {
                 BranchSwitcherRow(
                     branches = state.branches,
@@ -328,8 +333,7 @@ fun ChatScreen(
                             alpha = animAlpha
                             scaleX = animScale
                             scaleY = animScale
-                        }
-                        .padding(horizontal = dimensionResource(R.dimen.chat_horizontal_padding)),
+                        },
                     verticalArrangement = Arrangement.spacedBy(dimensionResource(R.dimen.chat_vertical_spacing)),
                     contentPadding = PaddingValues(vertical = dimensionResource(R.dimen.chat_vertical_spacing))
                 ) {
@@ -342,7 +346,7 @@ fun ChatScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(dimensionResource(R.dimen.chat_horizontal_padding)),
+                                    .padding(start = 16.dp, top = 4.dp, bottom = 4.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 CircularProgressIndicator(
@@ -543,7 +547,7 @@ private fun BranchSwitcherRow(
 private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
     if (message.role == ChatMessage.ROLE_SUMMARY) {
         Card(
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer
             ),
@@ -573,7 +577,7 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
 
     if (message.role == ChatMessage.ROLE_FACTS) {
         Card(
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer
             ),
@@ -602,7 +606,6 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
     }
 
     val isUser = message.role == ChatMessage.ROLE_USER
-    val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
     val cornerLarge = dimensionResource(R.dimen.chat_bubble_corner_large)
     val cornerSmall = dimensionResource(R.dimen.chat_bubble_corner_small)
     val shape = RoundedCornerShape(
@@ -612,43 +615,106 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
         bottomEnd = if (isUser) cornerSmall else cornerLarge
     )
 
-    Box(
-        modifier = modifier.fillMaxWidth(),
-        contentAlignment = alignment
-    ) {
-        if (isUser) {
-            Box(
-                modifier = Modifier
-                    .widthIn(max = dimensionResource(R.dimen.chat_bubble_max_width))
-                    .clip(shape)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
-            ) {
+    if (isUser) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp)
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.primary)
+                .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
+        ) {
+            SelectionContainer {
+                Text(
+                    text = message.content,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    } else {
+        Card(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(end = 16.dp),
+            shape = shape,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Box(modifier = Modifier.padding(dimensionResource(R.dimen.chat_bubble_content_padding))) {
                 SelectionContainer {
                     Text(
                         text = message.content,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
-        } else {
-            Card(
-                modifier = Modifier.widthIn(max = dimensionResource(R.dimen.chat_bubble_max_width)),
-                shape = shape,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Box(modifier = Modifier.padding(dimensionResource(R.dimen.chat_bubble_content_padding))) {
-                    SelectionContainer {
-                        Text(
-                            text = message.content,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+        }
+    }
+}
+
+@Composable
+private fun TaskStageIndicator(
+    currentStage: TaskStage,
+    modifier: Modifier = Modifier
+) {
+    val stages = listOf(
+        TaskStage.PLANNING to "Планирование",
+        TaskStage.EXECUTION to "Выполнение",
+        TaskStage.EVALUATION to "Оценка",
+        TaskStage.DONE to "Выполнено"
+    )
+    val currentIndex = stages.indexOfFirst { it.first == currentStage }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            stages.forEachIndexed { index, (_, label) ->
+                val isActive = index == currentIndex
+                val isDone = index < currentIndex
+
+                val textColor: Color = when {
+                    isActive -> MaterialTheme.colorScheme.primary
+                    isDone -> MaterialTheme.colorScheme.secondary
+                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(textColor)
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = textColor,
+                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+
+                if (index < stages.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 4.dp),
+                        color = if (isDone) MaterialTheme.colorScheme.secondary
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                        thickness = 1.dp
+                    )
                 }
             }
         }

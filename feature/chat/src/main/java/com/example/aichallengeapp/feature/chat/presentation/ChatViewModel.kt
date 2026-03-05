@@ -1,11 +1,11 @@
 package com.example.aichallengeapp.feature.chat.presentation
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
 import com.example.aichallengeapp.core.database.domain.model.ChatMetrics
 import com.example.aichallengeapp.core.database.domain.model.ChatSession
+import com.example.aichallengeapp.core.database.domain.model.TaskStage
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
 import com.example.aichallengeapp.core.database.domain.repository.UserProfileRepository
@@ -18,11 +18,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 private const val MAX_BRANCHES = 2
 private const val FIRST_BRANCH_INDEX = 1
-private const val MEMORY_LOG_TAG = "MemoryLayers"
-private const val MSG_PREVIEW_LEN = 120
+private const val STAGE_LOG_TAG = "StageArtifacts"
 
 private const val ROLE_LABEL_ASSISTANT = "Ассистент"
 private const val ROLE_LABEL_USER = "Пользователь"
@@ -30,12 +30,68 @@ private const val SUMMARIZER_SYSTEM_PROMPT = "Ты краткий суммари
 private const val FACTS_EXTRACTOR_SYSTEM_PROMPT =
     "Ты краткий суммаризатор переписок, который может вычленять важные данные из переписки"
 private const val TASK_DETECTOR_SYSTEM_PROMPT =
-    "Ты отлично понимаешь, когда меняется задача или когда начинается новая задача. " +
-    "Если в диалоге меньше 3 сообщений, то это всегда новая задача. " +
-    "Проанализируй следующие сообщения. Проверь это новая задача или нет. " +
-    "Если задача новая, то в ответ пришли основные факты по задаче, цель, ограничения (если есть) и т.д. " +
-    "в формате ключ:значение. Только ключ:значение и ничего больше. Очень кратко. " +
+    "Ты определяешь, началась ли новая задача в диалоге.\n" +
+    "Новая задача — это любой новый запрос пользователя, который требует нового цикла планирования, " +
+    "выполнения и оценки. Важно: повторяющийся или похожий запрос того же типа тоже является новой задачей " +
+    "(например, 'дай ещё 3 слова на английском' после завершения предыдущего цикла — это новая задача).\n" +
+    "Если в диалоге меньше 3 сообщений — это всегда новая задача.\n" +
+    "Если предыдущая задача уже завершена (этап DONE) и пользователь делает любой новый запрос — это новая задача.\n" +
+    "Если задача новая — пришли основные факты: цель, ограничения (если есть) в формате ключ:значение, " +
+    "каждый пункт на новой строке. Только ключ:значение и ничего больше. Очень кратко.\n" +
     "Если задача не новая — ответь только словом NO_CHANGE."
+
+private const val STAGE_PROMPT_PLANNING =
+    "Ты помогаешь пользователю спланировать задачу. Уточни цели, ограничения и шаги выполнения. " +
+    "Задавай уточняющие вопросы, помогай структурировать план. Когда план достаточно детален, " +
+    "предложи пользователю подтвердить переход к выполнению."
+
+private const val STAGE_PROMPT_EXECUTION =
+    "Ты помогаешь пользователю выполнить задачу согласно намеченному плану. Работай конкретно " +
+    "и последовательно. Когда работа завершена, предложи пользователю перейти к оценке результата. " +
+    "Вернуться к планированию можно только по явной просьбе пользователя."
+
+private const val STAGE_PROMPT_EVALUATION =
+    "Ты помогаешь оценить результат выполнения задачи. Явно попроси пользователя оценить " +
+    "результат — хорошо или плохо. При положительной оценке предложи завершить задачу. " +
+    "При отрицательной — предложи вернуться к выполнению или планированию."
+
+private const val STAGE_PROMPT_DONE =
+    "Задача успешно завершена. Если пользователь хочет начать новую задачу — помоги ему её сформулировать."
+
+private const val ARTIFACT_EXTRACTOR_PLANNING =
+    "Ты суммаризируешь результат этапа планирования. По переписке составь краткий артефакт плана: " +
+    "цель задачи, основные шаги, ограничения. Формат: ключ: значение, каждый пункт на новой строке. " +
+    "Только суть, без воды."
+
+private const val ARTIFACT_EXTRACTOR_EXECUTION =
+    "Ты суммаризируешь результат этапа выполнения. По переписке составь краткий артефакт: " +
+    "что сделано, ключевые результаты и принятые решения. Формат: ключ: значение, каждый пункт " +
+    "на новой строке. Только суть."
+
+private const val ARTIFACT_EXTRACTOR_EVALUATION =
+    "Ты суммаризируешь результат этапа оценки. По переписке составь краткий артефакт: " +
+    "итоговая оценка (положительная/отрицательная), основные замечания. Формат: ключ: значение, " +
+    "каждый пункт на новой строке."
+
+private fun stagePrompt(stage: TaskStage) = when (stage) {
+    TaskStage.PLANNING -> STAGE_PROMPT_PLANNING
+    TaskStage.EXECUTION -> STAGE_PROMPT_EXECUTION
+    TaskStage.EVALUATION -> STAGE_PROMPT_EVALUATION
+    TaskStage.DONE -> STAGE_PROMPT_DONE
+}
+
+private fun stageDetectorPrompt(stage: TaskStage) =
+    "Проанализируй последнее сообщение пользователя и контекст. " +
+    "Текущий этап задачи: ${stage.name}.\n\n" +
+    "Правила переходов (только явные действия пользователя):\n" +
+    "- PLANNING → EXECUTION: пользователь явно одобряет план\n" +
+    "- EXECUTION → EVALUATION: пользователь явно подтверждает завершение работы\n" +
+    "- EVALUATION → DONE: пользователь даёт положительную оценку (хорошо, всё ок, отлично и т.п.)\n" +
+    "- EVALUATION → EXECUTION: пользователь явно просит вернуться к выполнению\n" +
+    "- EVALUATION → PLANNING: пользователь явно просит вернуться к планированию\n" +
+    "- EXECUTION → PLANNING: пользователь явно просит вернуться к планированию\n\n" +
+    "- DONE → PLANNING: автоматически, это означает, что мы начали новую задачу\n\n" +
+    "Ответь ТОЛЬКО одним словом: PLANNING, EXECUTION, EVALUATION, DONE или NO_CHANGE."
 
 class ChatViewModel(
     private val chatId: String,
@@ -56,7 +112,9 @@ class ChatViewModel(
 
     private var currentGroupId: String? = null
     private var currentTask: String? = null
+    private var currentTaskStage: TaskStage = TaskStage.PLANNING
     private var currentProfileId: String? = null
+    private val currentStageArtifacts: MutableMap<TaskStage, String> = mutableMapOf()
 
     init {
         viewModelScope.launch {
@@ -70,15 +128,21 @@ class ChatViewModel(
                         .firstOrNull { it.branchIndex == initialBranchIndex }
                     if (target != null) {
                         _activeChatId.value = target.id
-                        _state.update { it.copy(messages = target.messages, activeChatId = target.id) }
+                        _state.update { it.copy(messages = target.messages, activeChatId = target.id, currentTaskStage = target.currentTaskStage, currentTask = target.currentTask) }
                         currentTask = target.currentTask
+                        currentTaskStage = target.currentTaskStage
+                        currentStageArtifacts.clear()
+                        currentStageArtifacts.putAll(target.stageArtifacts)
                         loadBranches(groupId, initialBranchIndex)
                         loadProfileName()
                         return@launch
                     }
                 }
-                _state.update { it.copy(messages = session.messages, activeChatId = chatId) }
+                _state.update { it.copy(messages = session.messages, activeChatId = chatId, currentTaskStage = session.currentTaskStage, currentTask = session.currentTask) }
                 currentTask = session.currentTask
+                currentTaskStage = session.currentTaskStage
+                currentStageArtifacts.clear()
+                currentStageArtifacts.putAll(session.stageArtifacts)
                 if (groupId != null) loadBranches(groupId, session.branchIndex)
             } else {
                 currentProfileId = initialProfileId
@@ -127,6 +191,9 @@ class ChatViewModel(
             val session = sessionRepository.getSession(sessionId) ?: return@launch
             _activeChatId.value = sessionId
             currentTask = session.currentTask
+            currentTaskStage = session.currentTaskStage
+            currentStageArtifacts.clear()
+            currentStageArtifacts.putAll(session.stageArtifacts)
             _state.update {
                 it.copy(
                     messages = session.messages,
@@ -134,7 +201,9 @@ class ChatViewModel(
                     activeChatId = sessionId,
                     inputText = "",
                     error = null,
-                    chatMetrics = null
+                    chatMetrics = null,
+                    currentTaskStage = session.currentTaskStage,
+                    currentTask = session.currentTask
                 )
             }
         }
@@ -214,7 +283,9 @@ class ChatViewModel(
 
     private fun clearChat() {
         currentTask = null
-        _state.update { it.copy(showMetrics = false, messages = emptyList(), error = null) }
+        currentTaskStage = TaskStage.PLANNING
+        currentStageArtifacts.clear()
+        _state.update { it.copy(showMetrics = false, messages = emptyList(), error = null, currentTaskStage = TaskStage.PLANNING, currentTask = null) }
         viewModelScope.launch {
             metricsRepository.deleteMetrics(activeChatId)
             persistSession(emptyList())
@@ -263,12 +334,34 @@ class ChatViewModel(
             val profile = currentProfileId?.let { userProfileRepository.getById(it) }
             val globalPrefix = profile?.description ?: ""
 
-            val detectedTask = detectCurrentTask(existingMessages, userMessage, settings.model.id)
-            if (detectedTask != null) {
-                currentTask = detectedTask
+            // Stage transition takes priority — check it first to avoid task detector
+            // misidentifying evaluation/completion responses as new tasks
+            val newStage = detectStageTransition(existingMessages, userMessage, settings.model.id)
+            if (newStage != null && newStage != currentTaskStage) {
+                val oldStage = currentTaskStage
+                val allStages = TaskStage.entries
+                val oldIndex = allStages.indexOf(oldStage)
+                val newIndex = allStages.indexOf(newStage)
+                var newArtifact: String? = null
+                if (newIndex > oldIndex) {
+                    val artifact = generateStageArtifact(oldStage, _state.value.messages, settings.model.id)
+                    currentStageArtifacts[oldStage] = artifact
+                    newArtifact = artifact
+                } else {
+                    currentStageArtifacts.remove(newStage)
+                }
+                logStageTransition(oldStage, newStage, newArtifact)
+                currentTaskStage = newStage
+                _state.update { it.copy(currentTaskStage = newStage) }
+            } else {
+                val detectedTask = detectNewTask(existingMessages, userMessage, settings.model.id)
+                if (detectedTask != null) {
+                    currentTask = detectedTask
+                    currentTaskStage = TaskStage.PLANNING
+                    currentStageArtifacts.clear()
+                    _state.update { it.copy(currentTaskStage = TaskStage.PLANNING, currentTask = detectedTask) }
+                }
             }
-
-            logMemoryLayers(globalPrefix, existingMessages, userMessage)
 
             val doStickyFacts = settings.stickyFactsEnabled
                 && existingMessages.size > settings.stickyFactsRecentMessages
@@ -284,52 +377,38 @@ class ChatViewModel(
         }
     }
 
-    private fun logMemoryLayers(
-        globalPrefix: String,
-        history: List<ChatMessage>,
-        newUserMessage: ChatMessage
-    ) {
-        val sep = "─".repeat(52)
-        Log.d(MEMORY_LOG_TAG, "┌$sep")
-        Log.d(MEMORY_LOG_TAG, "│  MEMORY LAYERS — before system prompt build")
-        Log.d(MEMORY_LOG_TAG, "├─── [1] LONG_TERM_MEMORY (global prefix) ${"─".repeat(10)}")
-        if (globalPrefix.isBlank()) {
-            Log.d(MEMORY_LOG_TAG, "│  <empty>")
-        } else {
-            globalPrefix.lines().forEach { Log.d(MEMORY_LOG_TAG, "│  $it") }
-        }
-        Log.d(MEMORY_LOG_TAG, "├─── [2] SHORT_TERM_MEMORY (${history.size} messages) ${"─".repeat(15)}")
-        history.forEach { msg ->
-            val label = when (msg.role) {
-                ChatMessage.ROLE_USER      -> "USER"
-                ChatMessage.ROLE_ASSISTANT -> "ASST"
-                ChatMessage.ROLE_SYSTEM    -> "SYS "
-                ChatMessage.ROLE_SUMMARY   -> "SUMM"
-                ChatMessage.ROLE_FACTS     -> "FACT"
-                else                       -> msg.role.take(4).uppercase()
-            }
-            val preview = msg.content.replace('\n', ' ').take(MSG_PREVIEW_LEN)
-            val ellipsis = if (msg.content.length > MSG_PREVIEW_LEN) "…" else ""
-            Log.d(MEMORY_LOG_TAG, "│  [$label] $preview$ellipsis")
-        }
-        val newPreview = newUserMessage.content.replace('\n', ' ').take(MSG_PREVIEW_LEN)
-        val newEllipsis = if (newUserMessage.content.length > MSG_PREVIEW_LEN) "…" else ""
-        Log.d(MEMORY_LOG_TAG, "│  [USER] (new) $newPreview$newEllipsis")
-        Log.d(MEMORY_LOG_TAG, "├─── [3] CURRENT_TASK_MEMORY ${"─".repeat(23)}")
-        if (currentTask.isNullOrBlank()) {
-            Log.d(MEMORY_LOG_TAG, "│  <empty>")
-        } else {
-            currentTask!!.lines().forEach { Log.d(MEMORY_LOG_TAG, "│  $it") }
-        }
-        Log.d(MEMORY_LOG_TAG, "└$sep")
-    }
-
     private fun effectiveSystemPrompt(globalPrefix: String, chatPrompt: String): String {
-        val base = if (globalPrefix.isBlank()) chatPrompt else "$globalPrefix\n\n$chatPrompt"
-        return if (currentTask.isNullOrBlank()) base else "$base\n\nТекущая задача:\n$currentTask"
+        val allStages = TaskStage.entries
+        val currentIndex = allStages.indexOf(currentTaskStage)
+        val precedingStages = allStages.take(currentIndex)
+        val relevantArtifacts = precedingStages.mapNotNull { stage ->
+            currentStageArtifacts[stage]?.let { stage to it }
+        }
+        val parts = buildList {
+            if (globalPrefix.isNotBlank()) add(globalPrefix)
+            if (chatPrompt.isNotBlank()) add(chatPrompt)
+            add(stagePrompt(currentTaskStage))
+            if (relevantArtifacts.isNotEmpty()) {
+                val artifactsSection = buildString {
+                    append("Артефакты предыдущих этапов:")
+                    relevantArtifacts.forEach { (stage, artifact) ->
+                        val stageLabel = when (stage) {
+                            TaskStage.PLANNING -> "Планирование"
+                            TaskStage.EXECUTION -> "Выполнение"
+                            TaskStage.EVALUATION -> "Оценка"
+                            TaskStage.DONE -> "Завершено"
+                        }
+                        append("\n$stageLabel:\n$artifact")
+                    }
+                }
+                add(artifactsSection)
+            }
+            if (!currentTask.isNullOrBlank()) add("Текущая задача:\n$currentTask")
+        }
+        return parts.joinToString("\n\n")
     }
 
-    private suspend fun detectCurrentTask(
+    private suspend fun detectNewTask(
         existingMessages: List<ChatMessage>,
         newUserMessage: ChatMessage,
         model: String
@@ -338,6 +417,7 @@ class ChatViewModel(
             .filter { it.role == ChatMessage.ROLE_USER || it.role == ChatMessage.ROLE_ASSISTANT }
             .takeLast(3)
         val contextText = buildString {
+            append("Текущий этап: ${currentTaskStage.name}\n\n")
             contextMessages.forEach { msg ->
                 val label = if (msg.role == ChatMessage.ROLE_ASSISTANT) ROLE_LABEL_ASSISTANT else ROLE_LABEL_USER
                 append("$label: ${msg.content}\n")
@@ -355,6 +435,86 @@ class ChatViewModel(
         )
         return result.getOrNull()?.message?.trim()
             ?.takeIf { it.isNotBlank() && it != "NO_CHANGE" }
+    }
+
+    private suspend fun detectStageTransition(
+        existingMessages: List<ChatMessage>,
+        newUserMessage: ChatMessage,
+        model: String
+    ): TaskStage? {
+        val contextMessages = existingMessages
+            .filter { it.role == ChatMessage.ROLE_USER || it.role == ChatMessage.ROLE_ASSISTANT }
+            .takeLast(4)
+        val contextText = buildString {
+            contextMessages.forEach { msg ->
+                val label = if (msg.role == ChatMessage.ROLE_ASSISTANT) ROLE_LABEL_ASSISTANT else ROLE_LABEL_USER
+                append("$label: ${msg.content}\n")
+            }
+            append("$ROLE_LABEL_USER: ${newUserMessage.content}\n")
+        }
+        val result = sendChatMessageUseCase(
+            messages = listOf(
+                ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = stageDetectorPrompt(currentTaskStage)),
+                ChatMessage(role = ChatMessage.ROLE_USER, content = contextText)
+            ),
+            maxTokens = null,
+            temperature = null,
+            model = model
+        )
+        val response = result.getOrNull()?.message?.trim() ?: return null
+        if (response == "NO_CHANGE") return null
+        return runCatching { TaskStage.valueOf(response) }.getOrNull()
+    }
+
+    private suspend fun generateStageArtifact(
+        stage: TaskStage,
+        messages: List<ChatMessage>,
+        model: String
+    ): String {
+        val extractorPrompt = when (stage) {
+            TaskStage.PLANNING -> ARTIFACT_EXTRACTOR_PLANNING
+            TaskStage.EXECUTION -> ARTIFACT_EXTRACTOR_EXECUTION
+            TaskStage.EVALUATION -> ARTIFACT_EXTRACTOR_EVALUATION
+            TaskStage.DONE -> return ""
+        }
+        val conversationText = messages
+            .filter { it.role == ChatMessage.ROLE_USER || it.role == ChatMessage.ROLE_ASSISTANT }
+            .joinToString("\n") { msg ->
+                val label = if (msg.role == ChatMessage.ROLE_ASSISTANT) ROLE_LABEL_ASSISTANT else ROLE_LABEL_USER
+                "$label: ${msg.content}"
+            }
+        val result = sendChatMessageUseCase(
+            messages = listOf(
+                ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = extractorPrompt),
+                ChatMessage(role = ChatMessage.ROLE_USER, content = conversationText)
+            ),
+            maxTokens = null,
+            temperature = null,
+            model = model
+        )
+        return result.getOrNull()?.message?.trim() ?: ""
+    }
+
+    private fun logStageTransition(from: TaskStage, to: TaskStage, newArtifact: String?) {
+        val log = Timber.tag(STAGE_LOG_TAG)
+        val sep = "─".repeat(36)
+        log.d("┌$sep")
+        log.d("│  STAGE TRANSITION")
+        log.d("│  {${from.name}} → {${to.name}}")
+        if (newArtifact != null) {
+            log.d("├─── ARTIFACT [${from.name}] ${"─".repeat(16)}")
+            newArtifact.lines().forEach { log.d("│  $it") }
+        }
+        if (currentStageArtifacts.isNotEmpty()) {
+            log.d("├─── ACTIVE ARTIFACTS ${"─".repeat(15)}")
+            currentStageArtifacts.forEach { (stage, artifact) ->
+                artifact.lines().forEachIndexed { i, line ->
+                    if (i == 0) log.d("│  [${stage.name}] $line")
+                    else log.d("│  $line")
+                }
+            }
+        }
+        log.d("└$sep")
     }
 
     private suspend fun sendMessageNormal(
@@ -567,8 +727,10 @@ class ChatViewModel(
                 messages = messages,
                 updatedAt = System.currentTimeMillis(),
                 currentTask = currentTask,
-                profileId = currentProfileId
-            ) ?: ChatSession(id = activeChatId, messages = messages, currentTask = currentTask, profileId = currentProfileId)
+                currentTaskStage = currentTaskStage,
+                profileId = currentProfileId,
+                stageArtifacts = currentStageArtifacts.toMap()
+            ) ?: ChatSession(id = activeChatId, messages = messages, currentTask = currentTask, currentTaskStage = currentTaskStage, profileId = currentProfileId, stageArtifacts = currentStageArtifacts.toMap())
             sessionRepository.upsertSession(session)
         }
     }

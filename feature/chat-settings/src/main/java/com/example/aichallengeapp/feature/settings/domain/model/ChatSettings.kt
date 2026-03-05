@@ -2,7 +2,7 @@ package com.example.aichallengeapp.feature.settings.domain.model
 
 import kotlinx.serialization.Serializable
 
-private const val DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant"
+private const val DEFAULT_SYSTEM_PROMPT = ""
 private const val DEFAULT_TEMPERATURE = 1.0f
 private const val DEFAULT_RETAINED_MESSAGE_COUNT = 10
 private const val DEFAULT_SUMMARY_MAX_TOKENS = 50
