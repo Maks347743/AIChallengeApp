@@ -24,6 +24,7 @@ class SettingsViewModel(
             _state.update {
                 it.copy(
                     settings = settings,
+                    maxTokensText = settings.maxTokens?.toString() ?: "",
                     maxRecentMessagesText = settings.retainedMessageCount.toString(),
                     summaryMaxTokensText = settings.summaryMaxTokens.toString(),
                     slidingWindowSizeText = settings.slidingWindowSize.toString(),
@@ -37,7 +38,11 @@ class SettingsViewModel(
         when (intent) {
             is SettingsIntent.UpdateModel -> updateSettings { copy(model = intent.model) }
             is SettingsIntent.UpdateSystemPrompt -> updateSettings { copy(systemPrompt = intent.text) }
-            is SettingsIntent.UpdateMaxTokens -> updateSettings { copy(maxTokensText = intent.value) }
+            is SettingsIntent.UpdateMaxTokens -> {
+                _state.update { it.copy(maxTokensText = intent.value) }
+                val parsed = intent.value.toIntOrNull()
+                updateSettings { copy(maxTokens = parsed) }
+            }
             is SettingsIntent.UpdateTemperature -> updateSettings { copy(temperature = intent.value) }
             is SettingsIntent.ToggleSummary -> updateSettings {
                 if (intent.enabled) copy(summaryEnabled = true, slidingWindowEnabled = false, stickyFactsEnabled = false)

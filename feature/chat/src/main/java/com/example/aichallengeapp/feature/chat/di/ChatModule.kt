@@ -2,7 +2,13 @@ package com.example.aichallengeapp.feature.chat.di
 
 import com.example.aichallengeapp.core.database.domain.repository.ChatRepository
 import com.example.aichallengeapp.feature.chat.data.repository.ChatRepositoryImpl
+import com.example.aichallengeapp.feature.chat.domain.usecase.BuildSystemPromptUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.DetectNewTaskUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.DetectStageTransitionUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.GenerateStageArtifactUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateMetricsUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.ValidateConstraintsUseCase
 import com.example.aichallengeapp.feature.chat.presentation.ChatViewModel
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -59,6 +65,29 @@ val chatModule = module {
     }
 
     factory { SendChatMessageUseCase(get()) }
+    factory { DetectStageTransitionUseCase(get()) }
+    factory { DetectNewTaskUseCase(get()) }
+    factory { GenerateStageArtifactUseCase(get()) }
+    factory { ValidateConstraintsUseCase() }
+    factory { BuildSystemPromptUseCase() }
+    factory { UpdateMetricsUseCase(get()) }
 
-    viewModel { params -> ChatViewModel(params.get(), params.get(), params.get(), get(), get(), get(), get(), get()) }
+    viewModel { params ->
+        ChatViewModel(
+            chatId = params.get(),
+            initialBranchIndex = params.get(),
+            initialProfileId = params.get(),
+            sendChatMessageUseCase = get(),
+            detectStageTransitionUseCase = get(),
+            detectNewTaskUseCase = get(),
+            generateStageArtifactUseCase = get(),
+            validateConstraintsUseCase = get(),
+            buildSystemPromptUseCase = get(),
+            updateMetricsUseCase = get(),
+            settingsRepository = get(),
+            sessionRepository = get(),
+            metricsRepository = get(),
+            userProfileRepository = get()
+        )
+    }
 }

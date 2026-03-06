@@ -12,7 +12,7 @@ private const val DEFAULT_STICKY_FACTS_RECENT_MESSAGES = 10
 @Serializable
 data class ChatSettings(
     val systemPrompt: String = DEFAULT_SYSTEM_PROMPT,
-    val maxTokensText: String = "",
+    val maxTokens: Int? = null,
     val temperature: Float = DEFAULT_TEMPERATURE,
     val model: DeepSeekModel = DeepSeekModel.DEEPSEEK_CHAT,
     val summaryEnabled: Boolean = false,
@@ -22,7 +22,4 @@ data class ChatSettings(
     val slidingWindowSize: Int = DEFAULT_SLIDING_WINDOW_SIZE,
     val stickyFactsEnabled: Boolean = false,
     val stickyFactsRecentMessages: Int = DEFAULT_STICKY_FACTS_RECENT_MESSAGES,
-) {
-    val maxTokens: Int?
-        get() = maxTokensText.toIntOrNull()
-}
+)

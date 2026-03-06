@@ -7,7 +7,7 @@ import kotlinx.serialization.json.Json
 
 class Converters {
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     @TypeConverter
     fun fromJson(value: String): List<ChatMessage> =

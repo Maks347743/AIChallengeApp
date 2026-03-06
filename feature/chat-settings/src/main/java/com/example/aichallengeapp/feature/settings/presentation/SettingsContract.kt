@@ -5,6 +5,7 @@ import com.example.aichallengeapp.feature.settings.domain.model.DeepSeekModel
 
 data class SettingsState(
     val settings: ChatSettings = ChatSettings(),
+    val maxTokensText: String = "",
     val maxRecentMessagesText: String = ChatSettings().retainedMessageCount.toString(),
     val summaryMaxTokensText: String = ChatSettings().summaryMaxTokens.toString(),
     val slidingWindowSizeText: String = ChatSettings().slidingWindowSize.toString(),

@@ -36,8 +36,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.aichallengeapp.core.database.domain.model.ChatMessage
 import com.example.aichallengeapp.core.database.domain.model.ChatSession
 import com.example.aichallengeapp.core.database.domain.model.UserProfile
 import com.example.aichallengeapp.feature.chatlist.R
@@ -158,19 +160,19 @@ private fun ProfileSelectionSheetContent(
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Text(
-            text = "Выберите профиль",
+            text = stringResource(R.string.select_profile_title),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         if (profiles.isEmpty()) {
             Text(
-                text = "Нет профилей",
+                text = stringResource(R.string.no_profiles),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             Text(
-                text = "Добавьте профиль в настройках",
+                text = stringResource(R.string.no_profiles_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 16.dp)
@@ -282,5 +284,36 @@ private fun ChatSessionCard(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ChatSessionCardPreview() {
+    MaterialTheme {
+        ChatSessionCard(
+            session = ChatSession(
+                id = "1",
+                messages = listOf(
+                    ChatMessage(role = ChatMessage.ROLE_USER, content = "Привет, расскажи мне о Kotlin")
+                )
+            ),
+            profileName = "Developer",
+            onClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ProfileSelectionSheetContentPreview() {
+    MaterialTheme {
+        ProfileSelectionSheetContent(
+            profiles = listOf(
+                UserProfile(id = "1", name = "Developer", description = "Kotlin developer profile", createdAt = 0L),
+                UserProfile(id = "2", name = "Writer", description = "Creative writing assistant", createdAt = 0L)
+            ),
+            onProfileSelected = {}
+        )
     }
 }

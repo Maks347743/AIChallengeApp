@@ -76,6 +76,7 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
@@ -337,7 +338,7 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(dimensionResource(R.dimen.chat_vertical_spacing)),
                     contentPadding = PaddingValues(vertical = dimensionResource(R.dimen.chat_vertical_spacing))
                 ) {
-                    itemsIndexed(state.messages, key = { index, _ -> index }) { _, message ->
+                    itemsIndexed(state.messages, key = { _, message -> message.id }) { _, message ->
                         ChatBubble(message = message, modifier = Modifier.animateItem(fadeOutSpec = null, placementSpec = null))
                     }
 
@@ -361,7 +362,7 @@ fun ChatScreen(
                     ScrollJumpButton(
                         visible = topButtonVisible,
                         icon = Icons.Default.KeyboardArrowUp,
-                        contentDescription = "Scroll to top",
+                        contentDescription = stringResource(R.string.cd_scroll_to_top),
                         onClick = {
                             hideScrollButtons()
                             suppressScrollDetection = true
@@ -378,7 +379,7 @@ fun ChatScreen(
                     ScrollJumpButton(
                         visible = bottomButtonVisible,
                         icon = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Scroll to bottom",
+                        contentDescription = stringResource(R.string.cd_scroll_to_bottom),
                         onClick = {
                             hideScrollButtons()
                             suppressScrollDetection = true
@@ -477,17 +478,17 @@ private fun MetricsBottomSheetContent(metrics: ChatMetrics) {
             )
     ) {
         Text(
-            text = "Token Usage",
+            text = stringResource(R.string.metrics_title),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(bottom = dimensionResource(R.dimen.metrics_title_bottom_padding))
         )
-        MetricRow(label = "Last request (prompt)", value = "${metrics.lastRequestTokens} tokens")
+        MetricRow(label = stringResource(R.string.metrics_last_request), value = stringResource(R.string.metrics_token_value, metrics.lastRequestTokens))
         HorizontalDivider(modifier = Modifier.padding(vertical = dimensionResource(R.dimen.metrics_divider_padding_vertical)))
-        MetricRow(label = "Last response (completion)", value = "${metrics.lastResponseTokens} tokens")
+        MetricRow(label = stringResource(R.string.metrics_last_response), value = stringResource(R.string.metrics_token_value, metrics.lastResponseTokens))
         HorizontalDivider(modifier = Modifier.padding(vertical = dimensionResource(R.dimen.metrics_divider_padding_vertical)))
         MetricRow(
-            label = "Total for this chat",
-            value = "${metrics.totalTokens} tokens",
+            label = stringResource(R.string.metrics_total),
+            value = stringResource(R.string.metrics_token_value, metrics.totalTokens),
             bold = true
         )
         Spacer(modifier = Modifier.height(dimensionResource(R.dimen.metrics_spacer_height)))
@@ -537,7 +538,41 @@ private fun BranchSwitcherRow(
             FilterChip(
                 selected = branch.branchIndex == activeBranchIndex,
                 onClick = { if (branch.branchIndex != activeBranchIndex) onBranchSelected(branch.sessionId) },
-                label = { Text("Branch ${branch.branchIndex}") }
+                label = { Text(stringResource(R.string.label_branch, branch.branchIndex)) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SystemMessageCard(
+    label: String,
+    containerColor: Color,
+    contentColor: Color,
+    content: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = contentColor,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.chat_bubble_label_spacing)))
+            Text(
+                text = content,
+                color = contentColor,
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }
@@ -545,143 +580,76 @@ private fun BranchSwitcherRow(
 
 @Composable
 private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
-    if (message.role == ChatMessage.ROLE_SUMMARY) {
-        Card(
-            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
-            ) {
-                Text(
-                    text = stringResource(R.string.label_summary),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(dimensionResource(R.dimen.chat_bubble_label_spacing)))
-                Text(
-                    text = message.content,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-        return
-    }
-
-    if (message.role == ChatMessage.ROLE_FACTS) {
-        Card(
-            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
-            ) {
-                Text(
-                    text = stringResource(R.string.label_facts),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(dimensionResource(R.dimen.chat_bubble_label_spacing)))
-                Text(
-                    text = message.content,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-        return
-    }
-
-    if (message.role == ChatMessage.ROLE_CONSTRAINT_VIOLATION_ASSISTANT ||
-        message.role == ChatMessage.ROLE_CONSTRAINT_VIOLATION_USER
-    ) {
-        Card(
-            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
-            ) {
-                Text(
-                    text = stringResource(R.string.label_constraint_violation),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(dimensionResource(R.dimen.chat_bubble_label_spacing)))
-                Text(
-                    text = message.content,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-        return
-    }
-
-    val isUser = message.role == ChatMessage.ROLE_USER
-    val cornerLarge = dimensionResource(R.dimen.chat_bubble_corner_large)
-    val cornerSmall = dimensionResource(R.dimen.chat_bubble_corner_small)
-    val shape = RoundedCornerShape(
-        topStart = cornerLarge,
-        topEnd = cornerLarge,
-        bottomStart = if (isUser) cornerLarge else cornerSmall,
-        bottomEnd = if (isUser) cornerSmall else cornerLarge
-    )
-
-    if (isUser) {
-        Box(
+    when (message.role) {
+        ChatMessage.ROLE_SUMMARY -> SystemMessageCard(
+            label = stringResource(R.string.label_summary),
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            content = message.content,
             modifier = modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp)
-                .clip(shape)
-                .background(MaterialTheme.colorScheme.primary)
-                .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
-        ) {
-            SelectionContainer {
-                Text(
-                    text = message.content,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-    } else {
-        Card(
+        )
+        ChatMessage.ROLE_FACTS -> SystemMessageCard(
+            label = stringResource(R.string.label_facts),
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            content = message.content,
             modifier = modifier
-                .fillMaxWidth()
-                .padding(end = 16.dp),
-            shape = shape,
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Box(modifier = Modifier.padding(dimensionResource(R.dimen.chat_bubble_content_padding))) {
+        )
+        ChatMessage.ROLE_CONSTRAINT_VIOLATION_ASSISTANT,
+        ChatMessage.ROLE_CONSTRAINT_VIOLATION_USER -> SystemMessageCard(
+            label = stringResource(R.string.label_constraint_violation),
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            content = message.content,
+            modifier = modifier
+        )
+        ChatMessage.ROLE_USER -> {
+            val cornerLarge = dimensionResource(R.dimen.chat_bubble_corner_large)
+            val cornerSmall = dimensionResource(R.dimen.chat_bubble_corner_small)
+            val shape = RoundedCornerShape(
+                topStart = cornerLarge, topEnd = cornerLarge,
+                bottomStart = cornerLarge, bottomEnd = cornerSmall
+            )
+            Box(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp)
+                    .clip(shape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .padding(dimensionResource(R.dimen.chat_bubble_content_padding))
+            ) {
                 SelectionContainer {
                     Text(
                         text = message.content,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         style = MaterialTheme.typography.bodyMedium
                     )
+                }
+            }
+        }
+        else -> {
+            val cornerLarge = dimensionResource(R.dimen.chat_bubble_corner_large)
+            val cornerSmall = dimensionResource(R.dimen.chat_bubble_corner_small)
+            val shape = RoundedCornerShape(
+                topStart = cornerLarge, topEnd = cornerLarge,
+                bottomStart = cornerSmall, bottomEnd = cornerLarge
+            )
+            Card(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(end = 16.dp),
+                shape = shape,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Box(modifier = Modifier.padding(dimensionResource(R.dimen.chat_bubble_content_padding))) {
+                    SelectionContainer {
+                        Text(
+                            text = message.content,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             }
         }
@@ -694,10 +662,10 @@ private fun TaskStageIndicator(
     modifier: Modifier = Modifier
 ) {
     val stages = listOf(
-        TaskStage.PLANNING to "Планирование",
-        TaskStage.EXECUTION to "Выполнение",
-        TaskStage.EVALUATION to "Оценка",
-        TaskStage.DONE to "Выполнено"
+        TaskStage.PLANNING to stringResource(R.string.stage_planning),
+        TaskStage.EXECUTION to stringResource(R.string.stage_execution),
+        TaskStage.EVALUATION to stringResource(R.string.stage_evaluation),
+        TaskStage.DONE to stringResource(R.string.stage_done)
     )
     val currentIndex = stages.indexOfFirst { it.first == currentStage }
 
@@ -750,5 +718,67 @@ private fun TaskStageIndicator(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ChatBubbleUserPreview() {
+    MaterialTheme {
+        ChatBubble(message = ChatMessage(role = ChatMessage.ROLE_USER, content = "Привет! Как дела?"))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ChatBubbleAssistantPreview() {
+    MaterialTheme {
+        ChatBubble(message = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = "Здравствуйте! Всё отлично, чем могу помочь?"))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SystemMessageCardPreview() {
+    MaterialTheme {
+        SystemMessageCard(
+            label = "Summary",
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            content = "This is a summary of the previous conversation."
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun MetricsBottomSheetContentPreview() {
+    MaterialTheme {
+        MetricsBottomSheetContent(
+            metrics = ChatMetrics(chatId = "preview", lastRequestTokens = 150, lastResponseTokens = 320, totalTokens = 1240)
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TaskStageIndicatorPreview() {
+    MaterialTheme {
+        TaskStageIndicator(currentStage = TaskStage.EXECUTION)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun BranchSwitcherRowPreview() {
+    MaterialTheme {
+        BranchSwitcherRow(
+            branches = listOf(
+                BranchInfo(sessionId = "1", branchIndex = 0),
+                BranchInfo(sessionId = "2", branchIndex = 1)
+            ),
+            activeBranchIndex = 0,
+            onBranchSelected = {}
+        )
     }
 }

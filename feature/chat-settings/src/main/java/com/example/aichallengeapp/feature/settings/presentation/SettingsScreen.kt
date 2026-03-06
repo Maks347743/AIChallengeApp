@@ -153,7 +153,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
                     OutlinedTextField(
-                        value = settings.maxTokensText,
+                        value = state.maxTokensText,
                         onValueChange = { viewModel.onIntent(SettingsIntent.UpdateMaxTokens(it)) },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text(stringResource(R.string.hint_max_tokens)) },

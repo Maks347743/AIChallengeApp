@@ -89,6 +89,9 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
 
+    // Security
+    implementation(libs.androidx.security.crypto)
+
     // Timber
     implementation(libs.timber)
 
