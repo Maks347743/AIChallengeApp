@@ -1,20 +1,20 @@
 [versions]
-agp = "9.0.1"
+agp = "9.1.0"
 timber = "5.0.1"
 kotlin = "2.3.10"
-ksp = "2.3.4"
+ksp = "2.3.6"
 room = "2.8.4"
 coreKtx = "1.17.0"
 lifecycleRuntime = "2.10.0"
 activityCompose = "1.12.4"
-composeBom = "2026.02.00"
-ktor = "3.4.0"
+composeBom = "2026.02.01"
+ktor = "3.4.1"
 koin = "4.1.1"
 kotlinxSerialization = "1.10.0"
 navigation3 = "1.0.1"
 coroutines = "1.10.2"
-kotest = "6.0.0.M4"
-securityCrypto = "1.1.0-alpha06"
+kotest = "6.1.4"
+securityCrypto = "1.1.0"
 
 [libraries]
 # AndroidX
