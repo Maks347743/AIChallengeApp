@@ -22,6 +22,7 @@ private const val LOG_TAG = "KtorClient"
 
 val chatModule = module {
     single {
+        val isDebug: Boolean = get(named("isDebug"))
         HttpClient(OkHttp) {
             install(HttpTimeout) {
                 requestTimeoutMillis = 600_000
@@ -32,15 +33,17 @@ val chatModule = module {
                 json(Json {
                     ignoreUnknownKeys = true
                     isLenient = true
-                    prettyPrint = true
+                    prettyPrint = isDebug
                     encodeDefaults = true
                 })
             }
-            install(Logging) {
-                level = LogLevel.BODY
-                logger = object : Logger {
-                    override fun log(message: String) {
-                        message.chunked(3000).forEach { Timber.tag(LOG_TAG).d(it) }
+            if (isDebug) {
+                install(Logging) {
+                    level = LogLevel.BODY
+                    logger = object : Logger {
+                        override fun log(message: String) {
+                            message.chunked(3000).forEach { Timber.tag(LOG_TAG).d(it) }
+                        }
                     }
                 }
             }

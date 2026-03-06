@@ -265,7 +265,7 @@ class ChatViewModel(
                 nextBranchIndex = FIRST_BRANCH_INDEX + 1
                 sessionRepository.updateCheckpointFields(activeChatId, groupId, currentBranchIndex)
             } else {
-                groupId = current.checkpointGroupId!!
+                groupId = requireNotNull(current.checkpointGroupId) { "checkpointGroupId must not be null in else branch" }
                 val siblings = sessionRepository.getSessionsByGroup(groupId)
                 if (siblings.size >= MAX_BRANCHES) return@launch
                 currentBranchIndex = current.branchIndex
@@ -642,7 +642,7 @@ class ChatViewModel(
             return
         }
 
-        val summaryContent = summaryResult.getOrNull()!!.message
+        val summaryContent = summaryResult.getOrThrow().message
 
         val mainHistory = buildList {
             add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
@@ -718,7 +718,7 @@ class ChatViewModel(
             return
         }
 
-        val factsContent = factsResult.getOrNull()!!.message
+        val factsContent = factsResult.getOrThrow().message
 
         val mainHistory = buildList {
             add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)))
@@ -794,7 +794,7 @@ class ChatViewModel(
                 _state.update { it.copy(isLoading = false, error = retryResult.exceptionOrNull()?.message ?: "Retry failed") }
                 return
             }
-            currentResponse = retryResult.getOrNull()!!.message
+            currentResponse = retryResult.getOrThrow().message
             retryCount++
         }
 

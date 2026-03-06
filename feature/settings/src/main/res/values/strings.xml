@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="title_global_settings">Общие настройки</string>
-    <string name="label_global_system_prompt">Системный промпт (глобальный)</string>
-    <string name="hint_global_system_prompt">Текст добавляется в начало системного промпта каждого чата</string>
-    <string name="cd_back_global_settings">Назад</string>
-</resources>
