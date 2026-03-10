@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import androidx.core.content.edit
 
 class ApiKeyStorage(context: Context) {
 
@@ -22,10 +23,17 @@ class ApiKeyStorage(context: Context) {
     fun getApiKey(): String? = prefs.getString(KEY_API_KEY, null)
 
     fun saveApiKey(key: String) {
-        prefs.edit().putString(KEY_API_KEY, key).apply()
+        prefs.edit { putString(KEY_API_KEY, key) }
+    }
+
+    fun getGithubKey(): String? = prefs.getString(KEY_GITHUB_KEY, null)
+
+    fun saveGithubKey(key: String) {
+        prefs.edit { putString(KEY_GITHUB_KEY, key) }
     }
 
     private companion object {
         const val KEY_API_KEY = "deepseek_api_key"
+        const val KEY_GITHUB_KEY = "github_key"
     }
 }

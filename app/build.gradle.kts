@@ -24,6 +24,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "DEEPSEEK_BASE_URL", "\"https://api.deepseek.com\"")
+        buildConfigField("String", "GITHUB_MCP_BASE_URL", "\"https://api.githubcopilot.com/mcp/\"")
     }
 
     buildTypes {
@@ -32,6 +33,11 @@ android {
                 "String",
                 "DEEPSEEK_API_KEY",
                 "\"${localProperties.getProperty("DEEPSEEK_API_KEY", "")}\""
+            )
+            buildConfigField(
+                "String",
+                "GITHUB_KEY",
+                "\"${localProperties.getProperty("GITHUB_KEY", "")}\""
             )
         }
         release {
@@ -43,6 +49,11 @@ android {
             buildConfigField(
                 "String",
                 "DEEPSEEK_API_KEY",
+                "\"\""
+            )
+            buildConfigField(
+                "String",
+                "GITHUB_KEY",
                 "\"\""
             )
         }
@@ -65,6 +76,7 @@ dependencies {
     implementation(project(":feature:chat"))
     implementation(project(":feature:chat-list"))
     implementation(project(":feature:user-preferences"))
+    implementation(project(":feature:explore-github"))
 
     // AndroidX
     implementation(libs.androidx.core.ktx)
@@ -77,6 +89,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.animation)
 
     // Navigation 3

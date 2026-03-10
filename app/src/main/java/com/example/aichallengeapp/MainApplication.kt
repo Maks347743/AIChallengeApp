@@ -6,6 +6,7 @@ import com.example.aichallengeapp.di.appModule
 import com.example.aichallengeapp.feature.chat.di.chatModule
 import com.example.aichallengeapp.feature.chatlist.di.chatListModule
 import com.example.aichallengeapp.feature.settings.di.settingsModule
+import com.example.aichallengeapp.feature.explore.di.exploreGitHubModule
 import com.example.aichallengeapp.feature.userpreferences.di.userPreferencesModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -20,7 +21,7 @@ class MainApplication : Application() {
         startKoin {
             androidLogger()
             androidContext(this@MainApplication)
-            modules(appModule, databaseModule, settingsModule, chatModule, chatListModule, userPreferencesModule)
+            modules(appModule, databaseModule, settingsModule, chatModule, chatListModule, userPreferencesModule, exploreGitHubModule)
         }
     }
 }
