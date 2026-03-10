@@ -1,6 +1,6 @@
 package com.example.aichallengeapp.feature.explore.domain
 
-import com.example.aichallengeapp.feature.explore.data.model.McpTool
+import com.example.aichallengeapp.core.mcp.model.McpTool
 
 sealed interface GitHubMcpResult {
     data class Success(val tools: List<McpTool>) : GitHubMcpResult

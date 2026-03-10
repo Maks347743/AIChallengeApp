@@ -49,5 +49,8 @@ ehthumbs.db
 # Linux
 *~
 
+# Run configurations (may contain secrets)
+.run/
+
 # Kotlin
 *.kotlin_module

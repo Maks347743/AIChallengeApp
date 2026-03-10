@@ -3,13 +3,15 @@ package com.example.aichallengeapp.feature.settings.presentation
 import com.example.aichallengeapp.feature.settings.domain.model.ChatSettings
 import com.example.aichallengeapp.feature.settings.domain.model.DeepSeekModel
 
+private val DEFAULTS = ChatSettings()
+
 data class SettingsState(
-    val settings: ChatSettings = ChatSettings(),
+    val settings: ChatSettings = DEFAULTS,
     val maxTokensText: String = "",
-    val maxRecentMessagesText: String = ChatSettings().retainedMessageCount.toString(),
-    val summaryMaxTokensText: String = ChatSettings().summaryMaxTokens.toString(),
-    val slidingWindowSizeText: String = ChatSettings().slidingWindowSize.toString(),
-    val stickyFactsRecentMessagesText: String = ChatSettings().stickyFactsRecentMessages.toString(),
+    val maxRecentMessagesText: String = DEFAULTS.retainedMessageCount.toString(),
+    val summaryMaxTokensText: String = DEFAULTS.summaryMaxTokens.toString(),
+    val slidingWindowSizeText: String = DEFAULTS.slidingWindowSize.toString(),
+    val stickyFactsRecentMessagesText: String = DEFAULTS.stickyFactsRecentMessages.toString(),
 )
 
 sealed interface SettingsIntent {

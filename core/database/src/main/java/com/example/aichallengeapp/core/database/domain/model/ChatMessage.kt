@@ -1,8 +1,7 @@
 package com.example.aichallengeapp.core.database.domain.model
 
 import kotlinx.serialization.Serializable
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
+import java.util.UUID
 
 @Serializable
 data class ChatMessage(
@@ -18,8 +17,9 @@ data class ChatMessage(
         const val ROLE_FACTS = "facts"
         const val ROLE_CONSTRAINT_VIOLATION_ASSISTANT = "constraint_violation_assistant"
         const val ROLE_CONSTRAINT_VIOLATION_USER = "constraint_violation_user"
+        const val ROLE_TOOL_CALL = "tool_call"
+        const val ROLE_TOOL_RESULT = "tool_result"
     }
 }
 
-@OptIn(ExperimentalUuidApi::class)
-private fun generateId(): String = Uuid.random().toString()
+private fun generateId(): String = UUID.randomUUID().toString()

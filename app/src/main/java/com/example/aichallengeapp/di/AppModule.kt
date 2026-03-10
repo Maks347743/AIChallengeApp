@@ -10,16 +10,7 @@ val appModule = module {
 
     single(named("apiKey")) {
         val storage = get<ApiKeyStorage>()
-        val storedKey = storage.getApiKey()
-        if (!storedKey.isNullOrEmpty()) {
-            storedKey
-        } else {
-            val buildConfigKey = BuildConfig.DEEPSEEK_API_KEY
-            if (buildConfigKey.isNotEmpty()) {
-                storage.saveApiKey(buildConfigKey)
-            }
-            buildConfigKey
-        }
+        resolveKey(storage::getApiKey, BuildConfig.DEEPSEEK_API_KEY, storage::saveApiKey)
     }
 
     single(named("baseUrl")) { BuildConfig.DEEPSEEK_BASE_URL }
@@ -27,17 +18,19 @@ val appModule = module {
 
     single(named("githubKey")) {
         val storage = get<ApiKeyStorage>()
-        val storedKey = storage.getGithubKey()
-        if (!storedKey.isNullOrEmpty()) {
-            storedKey
-        } else {
-            val buildConfigKey = BuildConfig.GITHUB_KEY
-            if (buildConfigKey.isNotEmpty()) {
-                storage.saveGithubKey(buildConfigKey)
-            }
-            buildConfigKey
-        }
+        resolveKey(storage::getGithubKey, BuildConfig.GITHUB_KEY, storage::saveGithubKey)
     }
 
-    single(named("mcpBaseUrl")) { BuildConfig.GITHUB_MCP_BASE_URL }
+    single(named("mcpBaseUrl")) { BuildConfig.MCP_SERVER_URL }
+}
+
+private fun resolveKey(
+    getStored: () -> String?,
+    buildConfigKey: String,
+    save: (String) -> Unit
+): String {
+    val stored = getStored()
+    if (!stored.isNullOrEmpty()) return stored
+    if (buildConfigKey.isNotEmpty()) save(buildConfigKey)
+    return buildConfigKey
 }

@@ -23,7 +23,7 @@ class UserProfileRepositoryImpl(
         dao.upsert(profile.toEntity())
 
     override suspend fun delete(profileId: String) {
-        dao.getById(profileId)?.let { dao.delete(it) }
+        dao.deleteById(profileId)
     }
 
     private val json = Json { ignoreUnknownKeys = true }

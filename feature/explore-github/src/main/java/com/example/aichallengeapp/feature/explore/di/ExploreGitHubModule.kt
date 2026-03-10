@@ -5,12 +5,10 @@ import com.example.aichallengeapp.feature.explore.presentation.ExploreGitHubView
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
-import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import org.koin.core.module.dsl.viewModel
@@ -29,10 +27,8 @@ val exploreGitHubModule = module {
     }
 
     single(named("mcpClient")) {
+        val isDebug: Boolean = get(named("isDebug"))
         HttpClient(OkHttp) {
-            defaultRequest {
-                headers.append(HttpHeaders.Accept, "application/json, text/event-stream")
-            }
             install(ContentNegotiation) {
                 json(get(named("mcpJson")))
             }
@@ -41,13 +37,15 @@ val exploreGitHubModule = module {
                 connectTimeoutMillis = 30_000
                 socketTimeoutMillis = 30_000
             }
-            install(Logging) {
-                logger = object : Logger {
-                    override fun log(message: String) {
-                        Timber.tag("McpHttp").d(message)
+            if (isDebug) {
+                install(Logging) {
+                    logger = object : Logger {
+                        override fun log(message: String) {
+                            Timber.tag("McpHttp").d(message)
+                        }
                     }
+                    level = LogLevel.BODY
                 }
-                level = if (get<Boolean>(named("isDebug"))) LogLevel.BODY else LogLevel.NONE
             }
         }
     }
@@ -55,7 +53,6 @@ val exploreGitHubModule = module {
     single<com.example.aichallengeapp.feature.explore.domain.GitHubMcpRepository> {
         GitHubMcpRepositoryImpl(
             httpClient = get(named("mcpClient")),
-            githubKey = get(named("githubKey")),
             mcpBaseUrl = get(named("mcpBaseUrl")),
             json = get(named("mcpJson"))
         )

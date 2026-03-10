@@ -3,17 +3,22 @@ package com.example.aichallengeapp.feature.chat.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
+import com.example.aichallengeapp.core.database.domain.model.ChatResult
 import com.example.aichallengeapp.core.database.domain.model.ChatSession
 import com.example.aichallengeapp.core.database.domain.model.Constraint
 import com.example.aichallengeapp.core.database.domain.model.TaskStage
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
 import com.example.aichallengeapp.core.database.domain.repository.UserProfileRepository
+import com.example.aichallengeapp.core.mcp.model.ToolDefinition
+import kotlinx.serialization.json.Json
 import com.example.aichallengeapp.feature.chat.domain.PromptTemplates
 import com.example.aichallengeapp.feature.chat.domain.usecase.BuildSystemPromptUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.DetectNewTaskUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.DetectStageTransitionUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.ExecuteToolCallsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.GenerateStageArtifactUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.GetToolDefinitionsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateMetricsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.ValidateConstraintsUseCase
@@ -31,6 +36,7 @@ private const val MAX_CONSTRAINT_RETRIES = 3
 private const val MAX_BRANCHES = 2
 private const val FIRST_BRANCH_INDEX = 1
 private const val STAGE_LOG_TAG = "StageArtifacts"
+private const val MAX_TOOL_ITERATIONS = 5
 
 class ChatViewModel(
     private val chatId: String,
@@ -43,6 +49,8 @@ class ChatViewModel(
     private val validateConstraintsUseCase: ValidateConstraintsUseCase,
     private val buildSystemPromptUseCase: BuildSystemPromptUseCase,
     private val updateMetricsUseCase: UpdateMetricsUseCase,
+    private val executeToolCallsUseCase: ExecuteToolCallsUseCase,
+    private val getToolDefinitionsUseCase: GetToolDefinitionsUseCase,
     private val settingsRepository: ChatSettingsRepository,
     private val sessionRepository: ChatSessionRepository,
     private val metricsRepository: ChatMetricsRepository,
@@ -57,10 +65,10 @@ class ChatViewModel(
 
     private var currentGroupId: String? = null
     private var currentTask: String? = null
-    private var currentTaskStage: TaskStage = TaskStage.PLANNING
     private var currentProfileId: String? = null
     private val currentStageArtifacts: MutableMap<TaskStage, String> = mutableMapOf()
     private var cachedSession: ChatSession? = null
+    private var cachedToolDefinitions: List<ToolDefinition>? = null
 
     init {
         viewModelScope.launch {
@@ -77,7 +85,6 @@ class ChatViewModel(
                         _activeChatId.value = target.id
                         _state.update { it.copy(messages = target.messages, activeChatId = target.id, currentTaskStage = target.currentTaskStage, currentTask = target.currentTask) }
                         currentTask = target.currentTask
-                        currentTaskStage = target.currentTaskStage
                         currentStageArtifacts.clear()
                         currentStageArtifacts.putAll(target.stageArtifacts)
                         loadBranches(groupId, initialBranchIndex)
@@ -87,7 +94,6 @@ class ChatViewModel(
                 }
                 _state.update { it.copy(messages = session.messages, activeChatId = chatId, currentTaskStage = session.currentTaskStage, currentTask = session.currentTask) }
                 currentTask = session.currentTask
-                currentTaskStage = session.currentTaskStage
                 currentStageArtifacts.clear()
                 currentStageArtifacts.putAll(session.stageArtifacts)
                 if (groupId != null) loadBranches(groupId, session.branchIndex)
@@ -102,6 +108,24 @@ class ChatViewModel(
                 .flatMapLatest { id -> metricsRepository.observeMetrics(id) }
                 .collect { metrics -> _state.update { it.copy(chatMetrics = metrics) } }
         }
+        // Pre-load tool definitions in background
+        viewModelScope.launch { loadToolDefinitions() }
+    }
+
+    private suspend fun loadToolDefinitions() {
+        try {
+            cachedToolDefinitions = getToolDefinitionsUseCase()
+            val count = cachedToolDefinitions?.size ?: 0
+            Timber.tag("ChatViewModel").d("Loaded $count tool definitions")
+            _state.update { it.copy(mcpToolsCount = count) }
+        } catch (e: Exception) {
+            Timber.tag("ChatViewModel").w(e, "MCP server unavailable, continuing without tools")
+            _state.update { it.copy(mcpToolsCount = 0) }
+        }
+    }
+
+    private fun reconnectMcp() {
+        viewModelScope.launch { loadToolDefinitions() }
     }
 
     private suspend fun loadProfileName() {
@@ -117,6 +141,7 @@ class ChatViewModel(
             is ChatIntent.ToggleMetrics -> _state.update { it.copy(showMetrics = !it.showMetrics) }
             is ChatIntent.CreateCheckpoint -> createCheckpoint()
             is ChatIntent.SwitchBranch -> switchBranch(intent.sessionId)
+            is ChatIntent.ReconnectMcp -> reconnectMcp()
         }
     }
 
@@ -139,7 +164,6 @@ class ChatViewModel(
             cachedSession = session
             _activeChatId.value = sessionId
             currentTask = session.currentTask
-            currentTaskStage = session.currentTaskStage
             currentStageArtifacts.clear()
             currentStageArtifacts.putAll(session.stageArtifacts)
             _state.update {
@@ -229,7 +253,6 @@ class ChatViewModel(
 
     private fun clearChat() {
         currentTask = null
-        currentTaskStage = TaskStage.PLANNING
         currentStageArtifacts.clear()
         _state.update { it.copy(showMetrics = false, messages = emptyList(), error = null, currentTaskStage = TaskStage.PLANNING, currentTask = null) }
         viewModelScope.launch {
@@ -282,17 +305,18 @@ class ChatViewModel(
             processStageAndTaskDetection(existingMessages, userMessage, settings.model.id)
 
             val constraints = profile?.constraints ?: emptyList()
+            val tools = cachedToolDefinitions
 
             val doStickyFacts = settings.stickyFactsEnabled
                 && existingMessages.size > settings.stickyFactsRecentMessages
             val doSummary = settings.summaryEnabled
                 && existingMessages.size > settings.retainedMessageCount
             if (doStickyFacts) {
-                sendMessageWithStickyFacts(settings, globalPrefix, existingMessages, userMessage, constraints)
+                sendMessageWithStickyFacts(settings, globalPrefix, existingMessages, userMessage, constraints, tools)
             } else if (doSummary) {
-                sendMessageWithSummary(settings, globalPrefix, existingMessages, userMessage, constraints)
+                sendMessageWithSummary(settings, globalPrefix, existingMessages, userMessage, constraints, tools)
             } else {
-                sendMessageNormal(settings, globalPrefix, constraints)
+                sendMessageNormal(settings, globalPrefix, constraints, tools)
             }
         }
     }
@@ -302,28 +326,26 @@ class ChatViewModel(
         userMessage: ChatMessage,
         model: String
     ) {
-        val newStage = detectStageTransitionUseCase(existingMessages, userMessage, currentTaskStage, model)
-        if (newStage != null && newStage != currentTaskStage) {
-            val oldStage = currentTaskStage
+        val currentStage = _state.value.currentTaskStage
+        val newStage = detectStageTransitionUseCase(existingMessages, userMessage, currentStage, model)
+        if (newStage != null && newStage != currentStage) {
             val allStages = TaskStage.entries
-            val oldIndex = allStages.indexOf(oldStage)
+            val oldIndex = allStages.indexOf(currentStage)
             val newIndex = allStages.indexOf(newStage)
             var newArtifact: String? = null
             if (newIndex > oldIndex) {
-                val artifact = generateStageArtifactUseCase(oldStage, _state.value.messages, model)
-                currentStageArtifacts[oldStage] = artifact
+                val artifact = generateStageArtifactUseCase(currentStage, _state.value.messages, model)
+                currentStageArtifacts[currentStage] = artifact
                 newArtifact = artifact
             } else {
                 currentStageArtifacts.remove(newStage)
             }
-            logStageTransition(oldStage, newStage, newArtifact)
-            currentTaskStage = newStage
+            logStageTransition(currentStage, newStage, newArtifact)
             _state.update { it.copy(currentTaskStage = newStage) }
         } else {
-            val detectedTask = detectNewTaskUseCase(existingMessages, userMessage, currentTaskStage, model)
+            val detectedTask = detectNewTaskUseCase(existingMessages, userMessage, currentStage, model)
             if (detectedTask != null) {
                 currentTask = detectedTask
-                currentTaskStage = TaskStage.PLANNING
                 currentStageArtifacts.clear()
                 _state.update { it.copy(currentTaskStage = TaskStage.PLANNING, currentTask = detectedTask) }
             }
@@ -337,7 +359,7 @@ class ChatViewModel(
     ): String = buildSystemPromptUseCase(
         globalPrefix = globalPrefix,
         chatPrompt = chatPrompt,
-        currentTaskStage = currentTaskStage,
+        currentTaskStage = _state.value.currentTaskStage,
         stageArtifacts = currentStageArtifacts.toMap(),
         constraints = constraints,
         currentTask = currentTask
@@ -365,36 +387,104 @@ class ChatViewModel(
         log.d("└$sep")
     }
 
+    private suspend fun sendAndProcessResponse(
+        result: Result<ChatResult>,
+        settings: ChatSettings,
+        globalPrefix: String,
+        constraints: List<Constraint>,
+        tools: List<ToolDefinition>?,
+        buildHistory: () -> List<ChatMessage>,
+        buildFinalMessages: (assistantContent: String) -> List<ChatMessage>
+    ) {
+        result.fold(
+            onSuccess = { initialResult ->
+                val finalResult = try {
+                    processToolCallingLoop(initialResult, settings, tools, buildHistory)
+                } catch (e: Exception) {
+                    _state.update { it.copy(isLoading = false, error = e.message ?: "Tool calling failed") }
+                    return
+                }
+
+                handleResponseWithConstraints(finalResult.message, constraints, settings, globalPrefix) { finalContent ->
+                    val finalMessages = buildFinalMessages(finalContent)
+                    _state.update { it.copy(messages = finalMessages, isLoading = false, currentTask = currentTask) }
+                    persistSession(finalMessages)
+                    updateMetrics(finalResult.metrics)
+                }
+            },
+            onFailure = { throwable ->
+                _state.update { it.copy(isLoading = false, error = throwable.message ?: "Unknown error") }
+            }
+        )
+    }
+
+    private suspend fun processToolCallingLoop(
+        initialResult: ChatResult,
+        settings: ChatSettings,
+        tools: List<ToolDefinition>?,
+        buildHistory: () -> List<ChatMessage>
+    ): ChatResult {
+        var result = initialResult
+        var iterations = 0
+
+        while (result.finishReason == "tool_calls" && result.toolCalls != null && iterations < MAX_TOOL_ITERATIONS) {
+            iterations++
+            Timber.tag("ChatViewModel").d("Tool calling iteration $iterations, ${result.toolCalls!!.size} tools to call")
+
+            // Add the assistant's tool_call message to state (hidden in UI)
+            // Content stores serialized ToolCallInfo list for reconstruction in ChatRepositoryImpl
+            val toolCallsJson = Json.encodeToString(result.toolCalls!!)
+            val toolCallMessage = ChatMessage(
+                role = ChatMessage.ROLE_TOOL_CALL,
+                content = toolCallsJson
+            )
+            _state.update { it.copy(messages = it.messages + toolCallMessage) }
+
+            // Execute all tool calls
+            val toolResultMessages = executeToolCallsUseCase(result.toolCalls!!)
+            _state.update { it.copy(messages = it.messages + toolResultMessages) }
+
+            // Rebuild history with tool results and send again
+            val fullHistory = buildHistory()
+            val nextResult = sendChatMessageUseCase(
+                fullHistory,
+                settings.maxTokens,
+                settings.temperature,
+                settings.model.id,
+                tools
+            )
+
+            if (nextResult.isFailure) {
+                throw nextResult.exceptionOrNull() ?: Exception("Tool calling loop failed")
+            }
+            result = nextResult.getOrThrow()
+        }
+
+        return result
+    }
+
     private suspend fun sendMessageNormal(
         settings: ChatSettings,
         globalPrefix: String,
-        constraints: List<Constraint> = emptyList()
+        constraints: List<Constraint> = emptyList(),
+        tools: List<ToolDefinition>? = null
     ) {
-        val fullHistory = buildList {
+        fun buildHistory(): List<ChatMessage> = buildList {
             add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)))
             addAll(_state.value.messages)
         }
 
-        sendChatMessageUseCase(fullHistory, settings.maxTokens, settings.temperature, settings.model.id)
-            .onSuccess { result ->
-                handleResponseWithConstraints(result.message, constraints, settings, globalPrefix) { finalContent ->
-                    val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
-                    val messagesWithResponse = _state.value.messages + assistantMessage
-                    val finalMessages = if (settings.slidingWindowEnabled
-                        && messagesWithResponse.size > settings.slidingWindowSize
-                    ) {
-                        messagesWithResponse.takeLast(settings.slidingWindowSize)
-                    } else {
-                        messagesWithResponse
-                    }
-                    _state.update { it.copy(messages = finalMessages, isLoading = false, currentTaskStage = currentTaskStage, currentTask = currentTask) }
-                    persistSession(finalMessages)
-                    updateMetrics(result.metrics)
-                }
+        val result = sendChatMessageUseCase(buildHistory(), settings.maxTokens, settings.temperature, settings.model.id, tools)
+
+        sendAndProcessResponse(result, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent ->
+            val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
+            val messagesWithResponse = _state.value.messages + assistantMessage
+            if (settings.slidingWindowEnabled && messagesWithResponse.size > settings.slidingWindowSize) {
+                messagesWithResponse.takeLast(settings.slidingWindowSize)
+            } else {
+                messagesWithResponse
             }
-            .onFailure { throwable ->
-                _state.update { it.copy(isLoading = false, error = throwable.message ?: "Unknown error") }
-            }
+        }
     }
 
     private suspend fun sendMessageWithSummary(
@@ -402,7 +492,8 @@ class ChatViewModel(
         globalPrefix: String,
         existingMessages: List<ChatMessage>,
         userMessage: ChatMessage,
-        constraints: List<Constraint> = emptyList()
+        constraints: List<Constraint> = emptyList(),
+        tools: List<ToolDefinition>? = null
     ) {
         val retainedMessageCount = settings.retainedMessageCount
         val olderMessages = existingMessages.dropLast(retainedMessageCount)
@@ -443,30 +534,18 @@ class ChatViewModel(
 
         val summaryContent = summaryResult.getOrThrow().message
 
-        val mainHistory = buildList {
+        fun buildHistory(): List<ChatMessage> = buildList {
             add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_SUMMARY })
             add(userMessage)
         }
-        val mainResult = sendChatMessageUseCase(
-            mainHistory,
-            settings.maxTokens,
-            settings.temperature,
-            settings.model.id
-        )
 
-        mainResult.onSuccess { result ->
-            handleResponseWithConstraints(result.message, constraints, settings, globalPrefix) { finalContent ->
-                val summaryMessage = ChatMessage(role = ChatMessage.ROLE_SUMMARY, content = summaryContent)
-                val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
-                val newMessages = listOf(summaryMessage) + recentMessages + userMessage + assistantMessage
-                _state.update { it.copy(messages = newMessages, isLoading = false, currentTaskStage = currentTaskStage, currentTask = currentTask) }
-                persistSession(newMessages)
-                updateMetrics(result.metrics)
-            }
-        }
-        mainResult.onFailure { throwable ->
-            _state.update { it.copy(isLoading = false, error = throwable.message ?: "Unknown error") }
+        val mainResult = sendChatMessageUseCase(buildHistory(), settings.maxTokens, settings.temperature, settings.model.id, tools)
+
+        sendAndProcessResponse(mainResult, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent ->
+            val summaryMessage = ChatMessage(role = ChatMessage.ROLE_SUMMARY, content = summaryContent)
+            val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
+            listOf(summaryMessage) + recentMessages + userMessage + assistantMessage
         }
     }
 
@@ -475,7 +554,8 @@ class ChatViewModel(
         globalPrefix: String,
         existingMessages: List<ChatMessage>,
         userMessage: ChatMessage,
-        constraints: List<Constraint> = emptyList()
+        constraints: List<Constraint> = emptyList(),
+        tools: List<ToolDefinition>? = null
     ) {
         val recentMessages = existingMessages.takeLast(settings.stickyFactsRecentMessages)
         val olderMessages = existingMessages.dropLast(settings.stickyFactsRecentMessages)
@@ -504,28 +584,19 @@ class ChatViewModel(
 
         val factsContent = factsResult.getOrThrow().message
 
-        val mainHistory = buildList {
+        fun buildHistory(): List<ChatMessage> = buildList {
             add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)))
             add(ChatMessage(role = ChatMessage.ROLE_USER, content = factsContent))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_FACTS })
             add(userMessage)
         }
-        val mainResult = sendChatMessageUseCase(mainHistory, settings.maxTokens, settings.temperature, settings.model.id)
 
-        mainResult.onSuccess { result ->
-            handleResponseWithConstraints(result.message, constraints, settings, globalPrefix) { finalContent ->
-                val factsMessage = ChatMessage(role = ChatMessage.ROLE_FACTS, content = factsContent)
-                val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
-                val newMessages = listOf(factsMessage) +
-                    recentMessages.filter { it.role != ChatMessage.ROLE_FACTS } +
-                    userMessage + assistantMessage
-                _state.update { it.copy(messages = newMessages, isLoading = false, currentTaskStage = currentTaskStage, currentTask = currentTask) }
-                persistSession(newMessages)
-                updateMetrics(result.metrics)
-            }
-        }
-        mainResult.onFailure { throwable ->
-            _state.update { it.copy(isLoading = false, error = throwable.message ?: "Unknown error") }
+        val mainResult = sendChatMessageUseCase(buildHistory(), settings.maxTokens, settings.temperature, settings.model.id, tools)
+
+        sendAndProcessResponse(mainResult, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent ->
+            val factsMessage = ChatMessage(role = ChatMessage.ROLE_FACTS, content = factsContent)
+            val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
+            listOf(factsMessage) + recentMessages.filter { it.role != ChatMessage.ROLE_FACTS } + userMessage + assistantMessage
         }
     }
 
@@ -590,7 +661,7 @@ class ChatViewModel(
                 messages = messages,
                 updatedAt = System.currentTimeMillis(),
                 currentTask = currentTask,
-                currentTaskStage = currentTaskStage,
+                currentTaskStage = _state.value.currentTaskStage,
                 profileId = currentProfileId,
                 stageArtifacts = currentStageArtifacts.toMap()
             )

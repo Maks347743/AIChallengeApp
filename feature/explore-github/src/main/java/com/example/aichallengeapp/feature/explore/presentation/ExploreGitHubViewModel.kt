@@ -2,7 +2,6 @@ package com.example.aichallengeapp.feature.explore.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.aichallengeapp.feature.explore.data.model.McpTool
 import com.example.aichallengeapp.feature.explore.domain.GitHubMcpRepository
 import com.example.aichallengeapp.feature.explore.domain.GitHubMcpResult
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,13 +9,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
-
-sealed interface ExploreGitHubUiState {
-    data object Loading : ExploreGitHubUiState
-    data class Success(val tools: List<McpTool>) : ExploreGitHubUiState
-    data object Empty : ExploreGitHubUiState
-    data class Error(val message: String, val isAuthError: Boolean = false) : ExploreGitHubUiState
-}
 
 class ExploreGitHubViewModel(
     private val mcpRepository: GitHubMcpRepository

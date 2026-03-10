@@ -20,4 +20,7 @@ interface UserProfileDao {
 
     @Delete
     suspend fun delete(profile: UserProfileEntity)
+
+    @Query("DELETE FROM user_profiles WHERE id = :id")
+    suspend fun deleteById(id: String)
 }

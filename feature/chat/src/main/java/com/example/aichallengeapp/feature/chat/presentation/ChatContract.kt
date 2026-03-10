@@ -11,6 +11,7 @@ sealed interface ChatIntent {
     data object ToggleMetrics : ChatIntent
     data object CreateCheckpoint : ChatIntent
     data class SwitchBranch(val sessionId: String) : ChatIntent
+    data object ReconnectMcp : ChatIntent
 }
 
 data class BranchInfo(val sessionId: String, val branchIndex: Int)
@@ -27,5 +28,6 @@ data class ChatState(
     val activeChatId: String = "",
     val currentProfileName: String? = null,
     val currentTaskStage: TaskStage = TaskStage.PLANNING,
-    val currentTask: String? = null
+    val currentTask: String? = null,
+    val mcpToolsCount: Int = 0
 )

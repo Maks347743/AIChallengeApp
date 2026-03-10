@@ -22,6 +22,9 @@ interface ChatSessionDao {
     @Delete
     suspend fun delete(session: ChatSessionEntity)
 
+    @Query("DELETE FROM chat_sessions WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     @Query("UPDATE chat_sessions SET settings_json = :settingsJson WHERE id = :id")
     suspend fun updateSettingsJson(id: String, settingsJson: String): Int
 

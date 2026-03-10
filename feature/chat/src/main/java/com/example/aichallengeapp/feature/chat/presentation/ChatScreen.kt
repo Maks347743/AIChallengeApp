@@ -151,9 +151,16 @@ fun ChatScreen(
                             text = stringResource(R.string.title_chat),
                             style = MaterialTheme.typography.titleLarge
                         )
-                        state.currentProfileName?.let {
+                        val subtitle = buildString {
+                            state.currentProfileName?.let { append(it) }
+                            if (state.mcpToolsCount > 0) {
+                                if (isNotEmpty()) append(" | ")
+                                append("MCP: ${state.mcpToolsCount} tools")
+                            }
+                        }
+                        if (subtitle.isNotEmpty()) {
                             Text(
-                                text = it,
+                                text = subtitle,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -603,6 +610,8 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
             content = message.content,
             modifier = modifier
         )
+        ChatMessage.ROLE_TOOL_CALL,
+        ChatMessage.ROLE_TOOL_RESULT -> { /* Hidden from UI */ }
         ChatMessage.ROLE_USER -> {
             val cornerLarge = dimensionResource(R.dimen.chat_bubble_corner_large)
             val cornerSmall = dimensionResource(R.dimen.chat_bubble_corner_small)

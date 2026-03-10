@@ -25,7 +25,7 @@ class ChatSessionRepositoryImpl(
         dao.upsert(session.toEntity())
 
     override suspend fun deleteSession(id: String) {
-        dao.getById(id)?.let { dao.delete(it) }
+        dao.deleteById(id)
     }
 
     override suspend fun getSettingsJson(chatId: String): String? =

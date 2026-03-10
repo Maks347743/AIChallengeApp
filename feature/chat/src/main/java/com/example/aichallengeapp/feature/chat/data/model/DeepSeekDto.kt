@@ -1,5 +1,7 @@
 package com.example.aichallengeapp.feature.chat.data.model
 
+import com.example.aichallengeapp.core.mcp.model.ToolCall
+import com.example.aichallengeapp.core.mcp.model.ToolDefinition
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -9,13 +11,18 @@ data class ChatRequest(
     val messages: List<MessageDto>,
     @SerialName("max_tokens")
     val maxTokens: Int? = null,
-    val temperature: Float? = null
+    val temperature: Float? = null,
+    val tools: List<ToolDefinition>? = null
 )
 
 @Serializable
 data class MessageDto(
     val role: String,
-    val content: String
+    val content: String? = null,
+    @SerialName("tool_calls")
+    val toolCalls: List<ToolCall>? = null,
+    @SerialName("tool_call_id")
+    val toolCallId: String? = null
 )
 
 @Serializable

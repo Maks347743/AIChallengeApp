@@ -1,11 +1,14 @@
 package com.example.aichallengeapp.feature.chat.di
 
 import com.example.aichallengeapp.core.database.domain.repository.ChatRepository
+import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClient
 import com.example.aichallengeapp.feature.chat.data.repository.ChatRepositoryImpl
 import com.example.aichallengeapp.feature.chat.domain.usecase.BuildSystemPromptUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.DetectNewTaskUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.DetectStageTransitionUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.ExecuteToolCallsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.GenerateStageArtifactUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.GetToolDefinitionsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateMetricsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.ValidateConstraintsUseCase
@@ -41,6 +44,7 @@ val chatModule = module {
                     isLenient = true
                     prettyPrint = isDebug
                     encodeDefaults = true
+                    explicitNulls = false
                 })
             }
             if (isDebug) {
@@ -64,6 +68,19 @@ val chatModule = module {
         )
     }
 
+    single {
+        val mcpJson = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+            isLenient = true
+        }
+        McpToolClient(
+            httpClient = get(named("mcpClient")),
+            mcpBaseUrl = get(named("mcpBaseUrl")),
+            json = mcpJson
+        )
+    }
+
     factory { SendChatMessageUseCase(get()) }
     factory { DetectStageTransitionUseCase(get()) }
     factory { DetectNewTaskUseCase(get()) }
@@ -71,6 +88,13 @@ val chatModule = module {
     factory { ValidateConstraintsUseCase() }
     factory { BuildSystemPromptUseCase() }
     factory { UpdateMetricsUseCase(get()) }
+    factory {
+        ExecuteToolCallsUseCase(
+            mcpToolClient = get(),
+            json = Json { ignoreUnknownKeys = true }
+        )
+    }
+    factory { GetToolDefinitionsUseCase(get()) }
 
     viewModel { params ->
         ChatViewModel(
@@ -84,6 +108,8 @@ val chatModule = module {
             validateConstraintsUseCase = get(),
             buildSystemPromptUseCase = get(),
             updateMetricsUseCase = get(),
+            executeToolCallsUseCase = get(),
+            getToolDefinitionsUseCase = get(),
             settingsRepository = get(),
             sessionRepository = get(),
             metricsRepository = get(),

@@ -1,50 +1,37 @@
 package com.example.aichallengeapp.feature.explore.data.repository
 
-import com.example.aichallengeapp.feature.explore.data.model.JsonRpcRequest
-import com.example.aichallengeapp.feature.explore.data.model.JsonRpcResponse
-import com.example.aichallengeapp.feature.explore.data.model.McpToolsListResult
+import com.example.aichallengeapp.core.mcp.McpConstants
+import com.example.aichallengeapp.core.mcp.model.JsonRpcRequest
+import com.example.aichallengeapp.core.mcp.model.JsonRpcResponse
+import com.example.aichallengeapp.core.mcp.model.McpCallToolParams
+import com.example.aichallengeapp.core.mcp.model.McpCallToolResult
+import com.example.aichallengeapp.core.mcp.model.McpToolsListResult
 import com.example.aichallengeapp.feature.explore.domain.GitHubMcpRepository
 import com.example.aichallengeapp.feature.explore.domain.GitHubMcpResult
 import io.ktor.client.HttpClient
-import io.ktor.client.request.bearerAuth
+import io.ktor.client.call.body
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.encodeToJsonElement
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicInteger
 
 class GitHubMcpRepositoryImpl(
     private val httpClient: HttpClient,
-    private val githubKey: String,
     private val mcpBaseUrl: String,
     private val json: Json
 ) : GitHubMcpRepository {
 
     private val requestIdCounter = AtomicInteger(0)
+    private var sessionId: String? = null
 
     private fun nextRequestId() = requestIdCounter.incrementAndGet()
-
-    private suspend fun extractJsonFromSse(response: HttpResponse): String {
-        val raw = response.bodyAsText()
-        val events = raw.split(Regex("\n\n+"))
-        val dataLines = events
-            .flatMap { event -> event.lines().filter { it.startsWith("data:") } }
-            .map { it.removePrefix("data:").trim() }
-            .filter { it.isNotEmpty() && it != "[DONE]" }
-        return if (dataLines.isNotEmpty()) dataLines.first() else raw
-    }
-
-    private suspend fun parseRpcResponse(response: HttpResponse): JsonRpcResponse {
-        val jsonStr = extractJsonFromSse(response)
-        return json.decodeFromString(JsonRpcResponse.serializer(), jsonStr)
-    }
 
     override suspend fun fetchTools(): GitHubMcpResult {
         return try {
@@ -52,28 +39,46 @@ class GitHubMcpRepositoryImpl(
             GitHubMcpResult.Success(tools)
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Failed to fetch MCP tools")
-            when {
-                e.message?.contains("Authentication failed") == true ->
-                    GitHubMcpResult.AuthError(e.message ?: "Authentication failed")
-                else ->
-                    GitHubMcpResult.Error(e.message ?: "Unknown error")
-            }
+            GitHubMcpResult.Error(e.message ?: "Unknown error")
         }
     }
 
-    private suspend fun performMcpHandshake(): List<com.example.aichallengeapp.feature.explore.data.model.McpTool> {
+    override suspend fun callTool(name: String, arguments: JsonObject?): McpCallToolResult {
+        val callParams = McpCallToolParams(name = name, arguments = arguments)
+        val request = JsonRpcRequest(
+            id = nextRequestId(),
+            method = "tools/call",
+            params = json.encodeToJsonElement(callParams) as JsonObject
+        )
+
+        val response = httpClient.post(mcpBaseUrl) {
+            contentType(ContentType.Application.Json)
+            sessionId?.let { headers.append("Mcp-Session-Id", it) }
+            setBody(request)
+        }
+
+        val rpcResponse: JsonRpcResponse = response.body()
+        rpcResponse.error?.let { err ->
+            throw Exception("MCP error: ${err.message}")
+        }
+        val resultElement = rpcResponse.result
+            ?: throw Exception("MCP tools/call returned null result")
+        return json.decodeFromJsonElement(McpCallToolResult.serializer(), resultElement)
+    }
+
+    private suspend fun performMcpHandshake(): List<com.example.aichallengeapp.core.mcp.model.McpTool> {
         // Step 1: Initialize
         val initRequest = JsonRpcRequest(
             id = nextRequestId(),
             method = "initialize",
             params = JsonObject(
                 mapOf(
-                    "protocolVersion" to JsonPrimitive(MCP_PROTOCOL_VERSION),
+                    "protocolVersion" to JsonPrimitive(McpConstants.PROTOCOL_VERSION),
                     "capabilities" to JsonObject(emptyMap()),
                     "clientInfo" to JsonObject(
                         mapOf(
-                            "name" to JsonPrimitive(CLIENT_NAME),
-                            "version" to JsonPrimitive(CLIENT_VERSION)
+                            "name" to JsonPrimitive(McpConstants.CLIENT_NAME),
+                            "version" to JsonPrimitive(McpConstants.CLIENT_VERSION)
                         )
                     )
                 )
@@ -82,39 +87,28 @@ class GitHubMcpRepositoryImpl(
 
         val initResponse = httpClient.post(mcpBaseUrl) {
             contentType(ContentType.Application.Json)
-            bearerAuth(githubKey)
             setBody(initRequest)
         }
 
         if (!initResponse.status.isSuccess()) {
-            val errorBody = initResponse.bodyAsText()
-            Timber.tag(TAG).e("MCP initialize failed: ${initResponse.status} - $errorBody")
-            if (initResponse.status.value == 401) {
-                throw Exception("Authentication failed. Check your GitHub Key.")
-            }
             throw Exception("MCP initialize failed: ${initResponse.status}")
         }
 
-        val sessionId = initResponse.headers["Mcp-Session-Id"]
+        sessionId = initResponse.headers["Mcp-Session-Id"]
         Timber.tag(TAG).d("MCP session ID: $sessionId")
 
-        val initRpc = parseRpcResponse(initResponse)
+        val initRpc: JsonRpcResponse = initResponse.body()
         Timber.tag(TAG).d("MCP initialize result: ${initRpc.result}")
 
-        // Step 2: Send initialized notification (no id = notification)
+        // Step 2: Send initialized notification
         val notificationRequest = JsonRpcRequest(
             method = "notifications/initialized"
         )
 
-        val notifResponse = httpClient.post(mcpBaseUrl) {
+        httpClient.post(mcpBaseUrl) {
             contentType(ContentType.Application.Json)
-            bearerAuth(githubKey)
             sessionId?.let { headers.append("Mcp-Session-Id", it) }
             setBody(notificationRequest)
-        }
-
-        if (!notifResponse.status.isSuccess()) {
-            Timber.tag(TAG).w("MCP notification response: ${notifResponse.status}")
         }
 
         // Step 3: List tools
@@ -125,24 +119,18 @@ class GitHubMcpRepositoryImpl(
 
         val toolsResponse = httpClient.post(mcpBaseUrl) {
             contentType(ContentType.Application.Json)
-            bearerAuth(githubKey)
             sessionId?.let { headers.append("Mcp-Session-Id", it) }
             setBody(toolsRequest)
         }
 
         if (!toolsResponse.status.isSuccess()) {
-            val errorBody = toolsResponse.bodyAsText()
-            Timber.tag(TAG).e("MCP tools/list failed: ${toolsResponse.status} - $errorBody")
-            if (toolsResponse.status.value == 401) {
-                throw Exception("Authentication failed. Check your GitHub Key.")
-            }
             throw Exception("MCP tools/list failed: ${toolsResponse.status}")
         }
 
-        val rpcResponse = parseRpcResponse(toolsResponse)
+        val rpcResponse: JsonRpcResponse = toolsResponse.body()
 
-        if (rpcResponse.error != null) {
-            throw Exception("MCP error: ${rpcResponse.error.message} (code: ${rpcResponse.error.code})")
+        rpcResponse.error?.let { err ->
+            throw Exception("MCP error: ${err.message} (code: ${err.code})")
         }
 
         val resultElement = rpcResponse.result
@@ -154,8 +142,5 @@ class GitHubMcpRepositoryImpl(
 
     private companion object {
         const val TAG = "GitHubMcpRepository"
-        const val MCP_PROTOCOL_VERSION = "2025-03-26"
-        const val CLIENT_NAME = "AIChallengeApp"
-        const val CLIENT_VERSION = "1.0.0"
     }
 }

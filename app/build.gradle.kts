@@ -24,7 +24,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "DEEPSEEK_BASE_URL", "\"https://api.deepseek.com\"")
-        buildConfigField("String", "GITHUB_MCP_BASE_URL", "\"https://api.githubcopilot.com/mcp/\"")
+        buildConfigField("String", "MCP_SERVER_URL", "\"http://10.0.2.2:3001/mcp\"")
     }
 
     buildTypes {

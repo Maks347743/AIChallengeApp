@@ -21,6 +21,7 @@ class UserProfileEditViewModel(
     val state: StateFlow<UserProfileEditState> = _state.asStateFlow()
 
     private var existingId: String? = null
+    private var existingCreatedAt: Long? = null
 
     init {
         if (profileId != null) {
@@ -28,6 +29,7 @@ class UserProfileEditViewModel(
                 val profile = userProfileRepository.getById(profileId)
                 if (profile != null) {
                     existingId = profile.id
+                    existingCreatedAt = profile.createdAt
                     _state.update { it.copy(name = profile.name, description = profile.description, constraints = profile.constraints) }
                 }
             }
@@ -60,11 +62,7 @@ class UserProfileEditViewModel(
                     id = id,
                     name = current.name.trim(),
                     description = current.description.trim(),
-                    createdAt = if (existingId != null) {
-                        userProfileRepository.getById(id)?.createdAt ?: System.currentTimeMillis()
-                    } else {
-                        System.currentTimeMillis()
-                    },
+                    createdAt = existingCreatedAt ?: System.currentTimeMillis(),
                     constraints = current.constraints.filter { it.name.isNotBlank() || it.regexPattern.isNotBlank() }
                 )
             )
