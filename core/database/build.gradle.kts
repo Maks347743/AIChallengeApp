@@ -20,6 +20,7 @@ ksp {
 
 dependencies {
     implementation(project(":core:mcp"))
+    implementation(project(":core:periodic-task"))
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)

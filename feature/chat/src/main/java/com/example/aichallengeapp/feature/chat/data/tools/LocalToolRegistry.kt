@@ -10,6 +10,9 @@ class LocalToolRegistry(
 
     fun isLocalTool(name: String): Boolean = handlers.any { it.definition.function.name == name }
 
+    fun isPeriodicTaskTool(name: String): Boolean =
+        handlers.any { it.definition.function.name == name && it.isPeriodicTaskTool }
+
     suspend fun execute(name: String, arguments: JsonObject?, chatId: String): String {
         val handler = handlers.firstOrNull { it.definition.function.name == name }
             ?: return "Unknown local tool: $name"

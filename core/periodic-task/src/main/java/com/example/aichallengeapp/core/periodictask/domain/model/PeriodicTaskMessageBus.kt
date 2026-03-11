@@ -1,4 +1,4 @@
-package com.example.aichallengeapp.core.database.domain.model
+package com.example.aichallengeapp.core.periodictask.domain.model
 
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow

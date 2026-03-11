@@ -1,7 +1,7 @@
-package com.example.aichallengeapp.core.database.domain.repository
+package com.example.aichallengeapp.core.periodictask.domain.repository
 
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTask
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTaskResult
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTask
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskResult
 import kotlinx.coroutines.flow.Flow
 
 interface PeriodicTaskRepository {

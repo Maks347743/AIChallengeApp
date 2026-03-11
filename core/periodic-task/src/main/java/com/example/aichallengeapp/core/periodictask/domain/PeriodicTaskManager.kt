@@ -1,6 +1,6 @@
-package com.example.aichallengeapp.core.database.domain
+package com.example.aichallengeapp.core.periodictask.domain
 
-import com.example.aichallengeapp.core.database.domain.repository.PeriodicTaskRepository
+import com.example.aichallengeapp.core.periodictask.domain.repository.PeriodicTaskRepository
 
 class PeriodicTaskManager(
     private val repository: PeriodicTaskRepository,

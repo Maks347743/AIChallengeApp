@@ -3,6 +3,7 @@ package com.example.aichallengeapp.feature.chat.di
 import com.example.aichallengeapp.core.database.domain.repository.ChatRepository
 import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClient
 import com.example.aichallengeapp.feature.chat.data.repository.ChatRepositoryImpl
+import com.example.aichallengeapp.feature.chat.domain.ChatSessionManager
 import com.example.aichallengeapp.feature.chat.domain.usecase.BuildSystemPromptUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.DetectNewTaskUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.DetectStageTransitionUseCase
@@ -92,6 +93,7 @@ val chatModule = module {
         )
     }
     factory { GetToolDefinitionsUseCase(get(), get()) }
+    factory { ChatSessionManager(get()) }
 
     viewModel { params ->
         ChatViewModel(
@@ -108,7 +110,7 @@ val chatModule = module {
             executeToolCallsUseCase = get(),
             getToolDefinitionsUseCase = get(),
             settingsRepository = get(),
-            sessionRepository = get(),
+            sessionManager = get(),
             metricsRepository = get(),
             userProfileRepository = get(),
             periodicTaskMessageBus = get()

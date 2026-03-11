@@ -3,9 +3,9 @@ package com.example.aichallengeapp.core.database.data.repository
 import com.example.aichallengeapp.core.database.data.db.PeriodicTaskDao
 import com.example.aichallengeapp.core.database.data.db.PeriodicTaskEntity
 import com.example.aichallengeapp.core.database.data.db.PeriodicTaskResultEntity
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTask
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTaskResult
-import com.example.aichallengeapp.core.database.domain.repository.PeriodicTaskRepository
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTask
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskResult
+import com.example.aichallengeapp.core.periodictask.domain.repository.PeriodicTaskRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 

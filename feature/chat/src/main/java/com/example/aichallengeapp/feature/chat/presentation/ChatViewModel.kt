@@ -4,15 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
 import com.example.aichallengeapp.core.database.domain.model.ChatResult
-import com.example.aichallengeapp.core.database.domain.model.ChatSession
 import com.example.aichallengeapp.core.database.domain.model.Constraint
 import com.example.aichallengeapp.core.database.domain.model.TaskStage
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
-import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
 import com.example.aichallengeapp.core.database.domain.repository.UserProfileRepository
 import com.example.aichallengeapp.core.mcp.model.ToolDefinition
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTaskMessageBus
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskMessageBus
 import kotlinx.serialization.json.Json
+import com.example.aichallengeapp.feature.chat.domain.ChatSessionManager
 import com.example.aichallengeapp.feature.chat.domain.PromptTemplates
 import com.example.aichallengeapp.feature.chat.domain.usecase.BuildSystemPromptUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.DetectNewTaskUseCase
@@ -28,18 +27,17 @@ import com.example.aichallengeapp.feature.settings.domain.repository.ChatSetting
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
 private const val MAX_CONSTRAINT_RETRIES = 3
-private const val MAX_BRANCHES = 2
-private const val FIRST_BRANCH_INDEX = 1
 private const val STAGE_LOG_TAG = "StageArtifacts"
 private const val MAX_TOOL_ITERATIONS = 5
-private val PERIODIC_TASK_TOOLS = setOf("create_periodic_task", "stop_periodic_task", "list_periodic_tasks")
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModel(
     private val chatId: String,
     private val initialBranchIndex: Int,
@@ -54,7 +52,7 @@ class ChatViewModel(
     private val executeToolCallsUseCase: ExecuteToolCallsUseCase,
     private val getToolDefinitionsUseCase: GetToolDefinitionsUseCase,
     private val settingsRepository: ChatSettingsRepository,
-    private val sessionRepository: ChatSessionRepository,
+    private val sessionManager: ChatSessionManager,
     private val metricsRepository: ChatMetricsRepository,
     private val userProfileRepository: UserProfileRepository,
     private val periodicTaskMessageBus: PeriodicTaskMessageBus
@@ -66,43 +64,45 @@ class ChatViewModel(
     private val _activeChatId = MutableStateFlow(chatId)
     private val activeChatId: String get() = _activeChatId.value
 
-    private var currentGroupId: String? = null
-    private var currentTask: String? = null
-    private var currentProfileId: String? = null
-    private val currentStageArtifacts: MutableMap<TaskStage, String> = mutableMapOf()
-    private var cachedSession: ChatSession? = null
     private var cachedToolDefinitions: List<ToolDefinition>? = null
 
     init {
         viewModelScope.launch {
-            val session = sessionRepository.getSession(chatId)
-            if (session != null) {
-                cachedSession = session
-                currentProfileId = session.profileId ?: initialProfileId
-                val groupId = session.checkpointGroupId
-                if (groupId != null && session.branchIndex != initialBranchIndex) {
-                    val target = sessionRepository.getSessionsByGroup(groupId)
-                        .firstOrNull { it.branchIndex == initialBranchIndex }
-                    if (target != null) {
-                        cachedSession = target
-                        _activeChatId.value = target.id
-                        _state.update { it.copy(messages = target.messages, activeChatId = target.id, currentTaskStage = target.currentTaskStage, currentTask = target.currentTask, isPeriodicTask = target.isPeriodicTask) }
-                        currentTask = target.currentTask
-                        currentStageArtifacts.clear()
-                        currentStageArtifacts.putAll(target.stageArtifacts)
-                        loadBranches(groupId, initialBranchIndex)
-                        loadProfileName()
-                        return@launch
-                    }
+            val result = sessionManager.loadSession(chatId, initialBranchIndex)
+            val target = result.targetSession
+            val session = result.session
+
+            if (target != null) {
+                _activeChatId.value = target.id
+                _state.update {
+                    it.copy(
+                        messages = target.messages,
+                        activeChatId = target.id,
+                        currentTaskStage = target.currentTaskStage,
+                        currentTask = target.currentTask,
+                        currentProfileId = target.profileId ?: initialProfileId,
+                        stageArtifacts = target.stageArtifacts,
+                        isPeriodicTask = target.isPeriodicTask,
+                        branches = result.branches,
+                        activeBranchIndex = result.activeBranchIndex
+                    )
                 }
-                _state.update { it.copy(messages = session.messages, activeChatId = chatId, currentTaskStage = session.currentTaskStage, currentTask = session.currentTask, isPeriodicTask = session.isPeriodicTask) }
-                currentTask = session.currentTask
-                currentStageArtifacts.clear()
-                currentStageArtifacts.putAll(session.stageArtifacts)
-                if (groupId != null) loadBranches(groupId, session.branchIndex)
+            } else if (session != null) {
+                _state.update {
+                    it.copy(
+                        messages = session.messages,
+                        activeChatId = chatId,
+                        currentTaskStage = session.currentTaskStage,
+                        currentTask = session.currentTask,
+                        currentProfileId = session.profileId ?: initialProfileId,
+                        stageArtifacts = session.stageArtifacts,
+                        isPeriodicTask = session.isPeriodicTask,
+                        branches = result.branches,
+                        activeBranchIndex = result.activeBranchIndex
+                    )
+                }
             } else {
-                currentProfileId = initialProfileId
-                _state.update { it.copy(activeChatId = chatId) }
+                _state.update { it.copy(activeChatId = chatId, currentProfileId = initialProfileId) }
             }
             loadProfileName()
         }
@@ -111,9 +111,7 @@ class ChatViewModel(
                 .flatMapLatest { id -> metricsRepository.observeMetrics(id) }
                 .collect { metrics -> _state.update { it.copy(chatMetrics = metrics) } }
         }
-        // Preload tool definitions in background
         viewModelScope.launch { loadToolDefinitions() }
-        // Collect periodic task results and append to chat
         viewModelScope.launch {
             periodicTaskMessageBus.messages.collect { message ->
                 if (message.chatId == activeChatId) {
@@ -140,12 +138,8 @@ class ChatViewModel(
         }
     }
 
-    private fun reconnectMcp() {
-        viewModelScope.launch { loadToolDefinitions() }
-    }
-
     private suspend fun loadProfileName() {
-        val profile = currentProfileId?.let { userProfileRepository.getById(it) }
+        val profile = _state.value.currentProfileId?.let { userProfileRepository.getById(it) }
         _state.update { it.copy(currentProfileName = profile?.name) }
     }
 
@@ -157,18 +151,17 @@ class ChatViewModel(
             is ChatIntent.ToggleMetrics -> _state.update { it.copy(showMetrics = !it.showMetrics) }
             is ChatIntent.CreateCheckpoint -> createCheckpoint()
             is ChatIntent.SwitchBranch -> switchBranch(intent.sessionId)
-            is ChatIntent.ReconnectMcp -> reconnectMcp()
+            is ChatIntent.ReconnectMcp -> viewModelScope.launch { loadToolDefinitions() }
         }
     }
 
     fun onNavigatingBack(navigate: () -> Unit) {
-        val groupId = currentGroupId
-        if (groupId == null) {
+        if (sessionManager.currentGroupId == null) {
             navigate()
             return
         }
         viewModelScope.launch {
-            cleanupGroupOnExit(groupId)
+            sessionManager.cleanupGroupOnExit(activeChatId, _state.value.messages.isEmpty())
             navigate()
         }
     }
@@ -176,12 +169,8 @@ class ChatViewModel(
     private fun switchBranch(sessionId: String) {
         if (sessionId == activeChatId || _state.value.isLoading) return
         viewModelScope.launch {
-            val session = sessionRepository.getSession(sessionId) ?: return@launch
-            cachedSession = session
+            val session = sessionManager.switchBranch(sessionId) ?: return@launch
             _activeChatId.value = sessionId
-            currentTask = session.currentTask
-            currentStageArtifacts.clear()
-            currentStageArtifacts.putAll(session.stageArtifacts)
             _state.update {
                 it.copy(
                     messages = session.messages,
@@ -192,108 +181,57 @@ class ChatViewModel(
                     chatMetrics = null,
                     currentTaskStage = session.currentTaskStage,
                     currentTask = session.currentTask,
+                    stageArtifacts = session.stageArtifacts,
                     isPeriodicTask = session.isPeriodicTask
                 )
             }
         }
     }
 
-    private suspend fun cleanupGroupOnExit(groupId: String) {
-        if (_state.value.messages.isEmpty()) {
-            sessionRepository.deleteSession(activeChatId)
-        }
-        val sessions = sessionRepository.getSessionsByGroup(groupId)
-        sessions.filter { it.messages.isEmpty() }.forEach { sessionRepository.deleteSession(it.id) }
-        val remaining = sessionRepository.getSessionsByGroup(groupId)
-        if (remaining.size == 1) {
-            val sole = remaining.first()
-            sessionRepository.upsertSession(sole.copy(checkpointGroupId = null, branchIndex = 0))
-        }
-    }
-
-    private suspend fun loadBranches(groupId: String, activeBranchIndex: Int) {
-        currentGroupId = groupId
-        val siblings = sessionRepository.getSessionsByGroup(groupId)
-        if (siblings.size <= 1) {
-            sessionRepository.getSession(activeChatId)?.let { session ->
-                sessionRepository.upsertSession(session.copy(checkpointGroupId = null, branchIndex = 0))
-            }
-            currentGroupId = null
-            return
-        }
-        _state.update {
-            it.copy(
-                branches = siblings.map { s -> BranchInfo(s.id, s.branchIndex) },
-                activeBranchIndex = activeBranchIndex
-            )
-        }
-    }
-
     private fun createCheckpoint() {
         if (_state.value.isLoading) return
-        if (_state.value.branches.size >= MAX_BRANCHES) return
+        if (_state.value.branches.size >= 2) return
         viewModelScope.launch {
-            val current = sessionRepository.getSession(activeChatId) ?: return@launch
-            val groupId: String
-            val currentBranchIndex: Int
-            val nextBranchIndex: Int
-
-            if (current.checkpointGroupId == null) {
-                groupId = java.util.UUID.randomUUID().toString()
-                currentBranchIndex = FIRST_BRANCH_INDEX
-                nextBranchIndex = FIRST_BRANCH_INDEX + 1
-                sessionRepository.updateCheckpointFields(activeChatId, groupId, currentBranchIndex)
-            } else {
-                groupId = requireNotNull(current.checkpointGroupId) { "checkpointGroupId must not be null in else branch" }
-                val siblings = sessionRepository.getSessionsByGroup(groupId)
-                if (siblings.size >= MAX_BRANCHES) return@launch
-                currentBranchIndex = current.branchIndex
-                nextBranchIndex = siblings.maxOf { it.branchIndex } + 1
+            val branches = sessionManager.createCheckpoint(activeChatId, _state.value.currentProfileId)
+            if (branches.isNotEmpty()) {
+                _state.update {
+                    it.copy(
+                        branches = branches,
+                        activeBranchIndex = branches.firstOrNull { b -> b.sessionId == activeChatId }?.branchIndex ?: it.activeBranchIndex
+                    )
+                }
             }
-
-            val now = System.currentTimeMillis()
-            sessionRepository.upsertSession(
-                ChatSession(
-                    id = java.util.UUID.randomUUID().toString(),
-                    messages = current.messages,
-                    createdAt = now,
-                    updatedAt = now,
-                    settingsJson = current.settingsJson,
-                    checkpointGroupId = groupId,
-                    branchIndex = nextBranchIndex,
-                    profileId = currentProfileId
-                )
-            )
-            loadBranches(groupId, currentBranchIndex)
         }
     }
 
     private fun clearChat() {
-        currentTask = null
-        currentStageArtifacts.clear()
-        _state.update { it.copy(showMetrics = false, messages = emptyList(), error = null, currentTaskStage = TaskStage.PLANNING, currentTask = null, isPeriodicTask = false) }
+        _state.update {
+            it.copy(
+                showMetrics = false,
+                messages = emptyList(),
+                error = null,
+                currentTaskStage = TaskStage.PLANNING,
+                currentTask = null,
+                stageArtifacts = emptyMap(),
+                isPeriodicTask = false
+            )
+        }
         viewModelScope.launch {
             metricsRepository.deleteMetrics(activeChatId)
             persistSession(emptyList())
-            val groupId = currentGroupId
-            if (groupId != null) {
-                val remaining = sessionRepository.getSessionsByGroup(groupId)
-                if (remaining.size == 1) {
-                    val sole = remaining.first()
-                    sessionRepository.upsertSession(sole.copy(checkpointGroupId = null, branchIndex = 0))
-                    _activeChatId.value = sole.id
-                    _state.update {
-                        it.copy(
-                            messages = sole.messages,
-                            activeChatId = sole.id,
-                            branches = emptyList(),
-                            activeBranchIndex = 0
-                        )
-                    }
-                } else {
-                    _state.update { it.copy(branches = emptyList(), activeBranchIndex = 0) }
+            val clearResult = sessionManager.clearSessionData()
+            if (clearResult.newActiveChatId != null) {
+                _activeChatId.value = clearResult.newActiveChatId
+                _state.update {
+                    it.copy(
+                        messages = clearResult.newMessages ?: emptyList(),
+                        activeChatId = clearResult.newActiveChatId,
+                        branches = emptyList(),
+                        activeBranchIndex = 0
+                    )
                 }
-                currentGroupId = null
+            } else {
+                _state.update { it.copy(branches = emptyList(), activeBranchIndex = 0) }
             }
         }
     }
@@ -316,7 +254,7 @@ class ChatViewModel(
 
         viewModelScope.launch {
             val settings = settingsRepository.load(activeChatId)
-            val profile = currentProfileId?.let { userProfileRepository.getById(it) }
+            val profile = _state.value.currentProfileId?.let { userProfileRepository.getById(it) }
             val globalPrefix = profile?.description ?: ""
 
             if (!_state.value.isPeriodicTask) {
@@ -351,22 +289,28 @@ class ChatViewModel(
             val allStages = TaskStage.entries
             val oldIndex = allStages.indexOf(currentStage)
             val newIndex = allStages.indexOf(newStage)
+            val artifacts = _state.value.stageArtifacts.toMutableMap()
             var newArtifact: String? = null
             if (newIndex > oldIndex) {
                 val artifact = generateStageArtifactUseCase(currentStage, _state.value.messages, model)
-                currentStageArtifacts[currentStage] = artifact
+                artifacts[currentStage] = artifact
                 newArtifact = artifact
             } else {
-                currentStageArtifacts.remove(newStage)
+                artifacts.remove(newStage)
             }
-            logStageTransition(currentStage, newStage, newArtifact)
-            _state.update { it.copy(currentTaskStage = newStage) }
+            logStageTransition(currentStage, newStage, newArtifact, artifacts)
+            _state.update { it.copy(currentTaskStage = newStage, stageArtifacts = artifacts) }
         } else {
             val detectedTask = detectNewTaskUseCase(existingMessages, userMessage, currentStage, model)
             if (detectedTask != null) {
-                currentTask = detectedTask
-                currentStageArtifacts.clear()
-                _state.update { it.copy(currentTaskStage = TaskStage.PLANNING, currentTask = detectedTask, isPeriodicTask = false) }
+                _state.update {
+                    it.copy(
+                        currentTaskStage = TaskStage.PLANNING,
+                        currentTask = detectedTask,
+                        stageArtifacts = emptyMap(),
+                        isPeriodicTask = false
+                    )
+                }
             }
         }
     }
@@ -375,27 +319,30 @@ class ChatViewModel(
         globalPrefix: String,
         chatPrompt: String,
         constraints: List<Constraint> = emptyList()
-    ): String = if (_state.value.isPeriodicTask) {
-        buildSystemPromptUseCase(
-            globalPrefix = globalPrefix,
-            chatPrompt = chatPrompt,
-            currentTaskStage = TaskStage.PLANNING,
-            stageArtifacts = emptyMap(),
-            constraints = constraints,
-            currentTask = null
-        )
-    } else {
-        buildSystemPromptUseCase(
-            globalPrefix = globalPrefix,
-            chatPrompt = chatPrompt,
-            currentTaskStage = _state.value.currentTaskStage,
-            stageArtifacts = currentStageArtifacts.toMap(),
-            constraints = constraints,
-            currentTask = currentTask
-        )
+    ): String {
+        val s = _state.value
+        return if (s.isPeriodicTask) {
+            buildSystemPromptUseCase(
+                globalPrefix = globalPrefix,
+                chatPrompt = chatPrompt,
+                currentTaskStage = TaskStage.PLANNING,
+                stageArtifacts = emptyMap(),
+                constraints = constraints,
+                currentTask = null
+            )
+        } else {
+            buildSystemPromptUseCase(
+                globalPrefix = globalPrefix,
+                chatPrompt = chatPrompt,
+                currentTaskStage = s.currentTaskStage,
+                stageArtifacts = s.stageArtifacts,
+                constraints = constraints,
+                currentTask = s.currentTask
+            )
+        }
     }
 
-    private fun logStageTransition(from: TaskStage, to: TaskStage, newArtifact: String?) {
+    private fun logStageTransition(from: TaskStage, to: TaskStage, newArtifact: String?, artifacts: Map<TaskStage, String>) {
         val log = Timber.tag(STAGE_LOG_TAG)
         val sep = "─".repeat(36)
         log.d("┌$sep")
@@ -405,9 +352,9 @@ class ChatViewModel(
             log.d("├─── ARTIFACT [${from.name}] ${"─".repeat(16)}")
             newArtifact.lines().forEach { log.d("│  $it") }
         }
-        if (currentStageArtifacts.isNotEmpty()) {
+        if (artifacts.isNotEmpty()) {
             log.d("├─── ACTIVE ARTIFACTS ${"─".repeat(15)}")
-            currentStageArtifacts.forEach { (stage, artifact) ->
+            artifacts.forEach { (stage, artifact) ->
                 artifact.lines().forEachIndexed { i, line ->
                     if (i == 0) log.d("│  [${stage.name}] $line")
                     else log.d("│  $line")
@@ -423,8 +370,8 @@ class ChatViewModel(
         globalPrefix: String,
         constraints: List<Constraint>,
         tools: List<ToolDefinition>?,
-        buildHistory: () -> List<ChatMessage>,
-        buildFinalMessages: (assistantContent: String) -> List<ChatMessage>
+        buildHistory: (messages: List<ChatMessage>) -> List<ChatMessage>,
+        buildFinalMessages: (assistantContent: String, currentMessages: List<ChatMessage>) -> List<ChatMessage>
     ) {
         result.fold(
             onSuccess = { initialResult ->
@@ -436,8 +383,9 @@ class ChatViewModel(
                 }
 
                 handleResponseWithConstraints(finalResult.message, constraints, settings, globalPrefix) { finalContent ->
-                    val finalMessages = buildFinalMessages(finalContent)
-                    _state.update { it.copy(messages = finalMessages, isLoading = false, currentTask = currentTask) }
+                    val currentMessages = _state.value.messages
+                    val finalMessages = buildFinalMessages(finalContent, currentMessages)
+                    _state.update { it.copy(messages = finalMessages, isLoading = false) }
                     persistSession(finalMessages)
                     updateMetrics(finalResult.metrics)
                 }
@@ -452,7 +400,7 @@ class ChatViewModel(
         initialResult: ChatResult,
         settings: ChatSettings,
         tools: List<ToolDefinition>?,
-        buildHistory: () -> List<ChatMessage>
+        buildHistory: (messages: List<ChatMessage>) -> List<ChatMessage>
     ): ChatResult {
         var result = initialResult
         var iterations = 0
@@ -460,13 +408,6 @@ class ChatViewModel(
             iterations++
             Timber.tag("ChatViewModel").d("Tool calling iteration $iterations, ${result.toolCalls!!.size} tools to call")
 
-            // Mark as periodic task if periodic tools are called
-            if (result.toolCalls!!.any { it.functionName in PERIODIC_TASK_TOOLS }) {
-                _state.update { it.copy(isPeriodicTask = true) }
-            }
-
-            // Add the assistant's tool_call message to state (hidden in UI)
-            // Content stores serialized ToolCallInfo list for reconstruction in ChatRepositoryImpl
             val toolCallsJson = Json.encodeToString(result.toolCalls!!)
             val toolCallMessage = ChatMessage(
                 role = ChatMessage.ROLE_TOOL_CALL,
@@ -474,12 +415,14 @@ class ChatViewModel(
             )
             _state.update { it.copy(messages = it.messages + toolCallMessage) }
 
-            // Execute all tool calls
-            val toolResultMessages = executeToolCallsUseCase(result.toolCalls!!, activeChatId)
-            _state.update { it.copy(messages = it.messages + toolResultMessages) }
+            val executionResult = executeToolCallsUseCase(result.toolCalls!!, activeChatId)
+            if (executionResult.hadPeriodicTaskTools) {
+                _state.update { it.copy(isPeriodicTask = true) }
+            }
+            _state.update { it.copy(messages = it.messages + executionResult.messages) }
 
-            // Rebuild history with tool results and send again
-            val fullHistory = buildHistory()
+            val currentMessages = _state.value.messages
+            val fullHistory = buildHistory(currentMessages)
             val nextResult = sendChatMessageUseCase(
                 fullHistory,
                 settings.maxTokens,
@@ -503,16 +446,16 @@ class ChatViewModel(
         constraints: List<Constraint> = emptyList(),
         tools: List<ToolDefinition>? = null
     ) {
-        fun buildHistory(): List<ChatMessage> = buildList {
+        fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
             add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)))
-            addAll(_state.value.messages)
+            addAll(messages)
         }
 
-        val result = sendChatMessageUseCase(buildHistory(), settings.maxTokens, settings.temperature, settings.model.id, tools)
+        val result = sendChatMessageUseCase(buildHistory(_state.value.messages), settings.maxTokens, settings.temperature, settings.model.id, tools)
 
-        sendAndProcessResponse(result, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent ->
+        sendAndProcessResponse(result, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, currentMessages ->
             val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
-            val messagesWithResponse = _state.value.messages + assistantMessage
+            val messagesWithResponse = currentMessages + assistantMessage
             if (settings.slidingWindowEnabled && messagesWithResponse.size > settings.slidingWindowSize) {
                 messagesWithResponse.takeLast(settings.slidingWindowSize)
             } else {
@@ -568,15 +511,17 @@ class ChatViewModel(
 
         val summaryContent = summaryResult.getOrThrow().message
 
-        fun buildHistory(): List<ChatMessage> = buildList {
+        fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
             add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_SUMMARY })
             add(userMessage)
+            val toolMessages = messages.drop(existingMessages.size + 1)
+            addAll(toolMessages)
         }
 
-        val mainResult = sendChatMessageUseCase(buildHistory(), settings.maxTokens, settings.temperature, settings.model.id, tools)
+        val mainResult = sendChatMessageUseCase(buildHistory(_state.value.messages), settings.maxTokens, settings.temperature, settings.model.id, tools)
 
-        sendAndProcessResponse(mainResult, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent ->
+        sendAndProcessResponse(mainResult, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, _ ->
             val summaryMessage = ChatMessage(role = ChatMessage.ROLE_SUMMARY, content = summaryContent)
             val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
             listOf(summaryMessage) + recentMessages + userMessage + assistantMessage
@@ -618,16 +563,18 @@ class ChatViewModel(
 
         val factsContent = factsResult.getOrThrow().message
 
-        fun buildHistory(): List<ChatMessage> = buildList {
+        fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
             add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)))
             add(ChatMessage(role = ChatMessage.ROLE_USER, content = factsContent))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_FACTS })
             add(userMessage)
+            val toolMessages = messages.drop(existingMessages.size + 1)
+            addAll(toolMessages)
         }
 
-        val mainResult = sendChatMessageUseCase(buildHistory(), settings.maxTokens, settings.temperature, settings.model.id, tools)
+        val mainResult = sendChatMessageUseCase(buildHistory(_state.value.messages), settings.maxTokens, settings.temperature, settings.model.id, tools)
 
-        sendAndProcessResponse(mainResult, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent ->
+        sendAndProcessResponse(mainResult, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, _ ->
             val factsMessage = ChatMessage(role = ChatMessage.ROLE_FACTS, content = factsContent)
             val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
             listOf(factsMessage) + recentMessages.filter { it.role != ChatMessage.ROLE_FACTS } + userMessage + assistantMessage
@@ -686,22 +633,15 @@ class ChatViewModel(
     }
 
     private suspend fun persistSession(messages: List<ChatMessage>) {
-        if (messages.isEmpty()) {
-            cachedSession = null
-            sessionRepository.deleteSession(activeChatId)
-        } else {
-            val session = (cachedSession ?: ChatSession(id = activeChatId)).copy(
-                id = activeChatId,
-                messages = messages,
-                updatedAt = System.currentTimeMillis(),
-                currentTask = currentTask,
-                currentTaskStage = _state.value.currentTaskStage,
-                profileId = currentProfileId,
-                stageArtifacts = currentStageArtifacts.toMap(),
-                isPeriodicTask = _state.value.isPeriodicTask
-            )
-            cachedSession = session
-            sessionRepository.upsertSession(session)
-        }
+        val s = _state.value
+        sessionManager.persistSession(
+            chatId = activeChatId,
+            messages = messages,
+            currentTask = s.currentTask,
+            currentTaskStage = s.currentTaskStage,
+            profileId = s.currentProfileId,
+            stageArtifacts = s.stageArtifacts,
+            isPeriodicTask = s.isPeriodicTask
+        )
     }
 }

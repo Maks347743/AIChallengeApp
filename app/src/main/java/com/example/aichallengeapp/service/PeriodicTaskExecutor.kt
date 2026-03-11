@@ -1,11 +1,11 @@
 package com.example.aichallengeapp.service
 
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTask
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTaskMessage
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTaskResult
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTask
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskMessage
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskResult
 import com.example.aichallengeapp.core.database.domain.repository.ChatRepository
-import com.example.aichallengeapp.core.database.domain.repository.PeriodicTaskRepository
+import com.example.aichallengeapp.core.periodictask.domain.repository.PeriodicTaskRepository
 import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClient
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject

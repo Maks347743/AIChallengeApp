@@ -8,8 +8,8 @@ import com.example.aichallengeapp.feature.chat.data.tools.LocalToolRegistry
 import com.example.aichallengeapp.feature.chat.data.tools.StopPeriodicTaskTool
 import com.example.aichallengeapp.service.PeriodicTaskExecutor
 import com.example.aichallengeapp.service.PeriodicTaskServiceControllerImpl
-import com.example.aichallengeapp.core.database.domain.PeriodicTaskManager
-import com.example.aichallengeapp.core.database.domain.PeriodicTaskServiceController
+import com.example.aichallengeapp.core.periodictask.domain.PeriodicTaskManager
+import com.example.aichallengeapp.core.periodictask.domain.PeriodicTaskServiceController
 import com.example.aichallengeapp.feature.settings.domain.model.DeepSeekModel
 import org.koin.core.qualifier.named
 import org.koin.dsl.module

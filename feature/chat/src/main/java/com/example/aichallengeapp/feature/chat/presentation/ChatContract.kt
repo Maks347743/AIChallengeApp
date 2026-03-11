@@ -27,8 +27,10 @@ data class ChatState(
     val activeBranchIndex: Int = 0,
     val activeChatId: String = "",
     val currentProfileName: String? = null,
+    val currentProfileId: String? = null,
     val currentTaskStage: TaskStage = TaskStage.PLANNING,
     val currentTask: String? = null,
+    val stageArtifacts: Map<TaskStage, String> = emptyMap(),
     val isPeriodicTask: Boolean = false,
     val mcpToolsCount: Int = 0
 )

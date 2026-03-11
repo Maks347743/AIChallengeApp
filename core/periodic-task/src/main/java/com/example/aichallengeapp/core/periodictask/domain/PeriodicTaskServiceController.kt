@@ -1,4 +1,4 @@
-package com.example.aichallengeapp.core.database.domain
+package com.example.aichallengeapp.core.periodictask.domain
 
 interface PeriodicTaskServiceController {
     fun ensureStarted()

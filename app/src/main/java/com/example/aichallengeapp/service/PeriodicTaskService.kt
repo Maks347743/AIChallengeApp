@@ -8,10 +8,10 @@ import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.example.aichallengeapp.R
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTask
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTaskConstants
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTaskMessageBus
-import com.example.aichallengeapp.core.database.domain.repository.PeriodicTaskRepository
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTask
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskConstants
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskMessageBus
+import com.example.aichallengeapp.core.periodictask.domain.repository.PeriodicTaskRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

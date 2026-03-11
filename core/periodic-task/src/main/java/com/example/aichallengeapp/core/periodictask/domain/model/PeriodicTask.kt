@@ -1,4 +1,4 @@
-package com.example.aichallengeapp.core.database.domain.model
+package com.example.aichallengeapp.core.periodictask.domain.model
 
 data class PeriodicTask(
     val id: String,

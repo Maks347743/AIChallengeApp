@@ -1,4 +1,4 @@
-package com.example.aichallengeapp.core.database.domain.model
+package com.example.aichallengeapp.core.periodictask.domain.model
 
 object PeriodicTaskConstants {
     const val NOTIFICATION_CHANNEL_ID = "periodic_tasks_channel"

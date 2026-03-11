@@ -1,7 +1,7 @@
 package com.example.aichallengeapp.service
 
 import android.content.Context
-import com.example.aichallengeapp.core.database.domain.PeriodicTaskServiceController
+import com.example.aichallengeapp.core.periodictask.domain.PeriodicTaskServiceController
 
 class PeriodicTaskServiceControllerImpl(
     private val context: Context

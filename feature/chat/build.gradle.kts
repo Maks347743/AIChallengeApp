@@ -22,6 +22,7 @@ tasks.withType<Test> {
 dependencies {
     implementation(project(":core:database"))
     implementation(project(":core:mcp"))
+    implementation(project(":core:periodic-task"))
     implementation(project(":feature:chat-settings"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

@@ -25,10 +25,13 @@ fun main() {
         isLenient = true
     }
 
-    val registry = ToolRegistry()
-    GitHubSearchReposTool(gitHubClient, json).register(registry)
-    GitHubGetUserTool(gitHubClient, json).register(registry)
-    GitHubTrendingTool(gitHubClient, json).register(registry)
+    val registry = ToolRegistry(
+        listOf(
+            GitHubSearchReposTool(gitHubClient, json),
+            GitHubGetUserTool(gitHubClient, json),
+            GitHubTrendingTool(gitHubClient, json)
+        )
+    )
 
     val handler = McpRequestHandler(registry)
 

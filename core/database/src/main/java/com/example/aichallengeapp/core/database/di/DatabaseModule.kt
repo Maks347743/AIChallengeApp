@@ -19,8 +19,8 @@ import com.example.aichallengeapp.core.database.data.repository.PeriodicTaskRepo
 import com.example.aichallengeapp.core.database.data.repository.UserProfileRepositoryImpl
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
-import com.example.aichallengeapp.core.database.domain.repository.PeriodicTaskRepository
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTaskMessageBus
+import com.example.aichallengeapp.core.periodictask.domain.repository.PeriodicTaskRepository
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskMessageBus
 import com.example.aichallengeapp.core.database.domain.repository.UserProfileRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json

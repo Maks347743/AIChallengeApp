@@ -3,14 +3,13 @@ package com.example.mcpserver.tools
 import com.example.aichallengeapp.core.mcp.model.McpCallToolResult
 import com.example.aichallengeapp.core.mcp.model.McpContent
 import com.example.mcpserver.github.GitHubApiClient
-import com.example.mcpserver.mcp.ToolRegistry
+import com.example.mcpserver.github.GitHubAuthException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -19,33 +18,29 @@ import kotlinx.serialization.json.putJsonObject
 class GitHubSearchReposTool(
     private val gitHubClient: GitHubApiClient,
     private val json: Json
-) {
+) : McpToolHandler {
 
-    fun register(registry: ToolRegistry) {
-        val schema = buildJsonObject {
-            put("type", "object")
-            putJsonObject("properties") {
-                putJsonObject("query") {
-                    put("type", "string")
-                    put("description", "Search query for GitHub repositories")
-                }
-                putJsonObject("maxResults") {
-                    put("type", "integer")
-                    put("description", "Maximum number of results to return (default 5)")
-                }
+    override val name = "github_search_repos"
+
+    override val description =
+        "Search GitHub repositories by query. Returns name, description, stars, language, and URL for each repository."
+
+    override val inputSchema: JsonElement = buildJsonObject {
+        put("type", "object")
+        putJsonObject("properties") {
+            putJsonObject("query") {
+                put("type", "string")
+                put("description", "Search query for GitHub repositories")
             }
-            putJsonArray("required") { add(JsonPrimitive("query")) }
+            putJsonObject("maxResults") {
+                put("type", "integer")
+                put("description", "Maximum number of results to return (default 5)")
+            }
         }
-
-        registry.register(
-            name = "github_search_repos",
-            description = "Search GitHub repositories by query. Returns name, description, stars, language, and URL for each repository.",
-            inputSchema = schema,
-            handler = this::execute
-        )
+        putJsonArray("required") { add(JsonPrimitive("query")) }
     }
 
-    private suspend fun execute(arguments: JsonObject?): McpCallToolResult {
+    override suspend fun execute(arguments: JsonObject?): McpCallToolResult {
         val query = arguments?.get("query")?.jsonPrimitive?.content
             ?: return McpCallToolResult(
                 content = listOf(McpContent(text = "Missing required parameter: query")),
@@ -55,28 +50,30 @@ class GitHubSearchReposTool(
 
         return try {
             val responseText = gitHubClient.get("/search/repositories?q=$query&per_page=$maxResults")
-            val root = json.parseToJsonElement(responseText).jsonObject
-            val items = root["items"]?.jsonArray ?: return McpCallToolResult(
-                content = listOf(McpContent(text = "No results found")),
-                isError = false
-            )
+            val response = json.decodeFromString<GitHubSearchResponse>(responseText)
+
+            if (response.items.isEmpty()) {
+                return McpCallToolResult(
+                    content = listOf(McpContent(text = "No results found")),
+                    isError = false
+                )
+            }
 
             val text = buildString {
-                appendLine("Found ${items.size} repositories for \"$query\":\n")
-                items.forEach { item ->
-                    val repo = item.jsonObject
-                    val name = repo["full_name"]?.jsonPrimitive?.content ?: "unknown"
-                    val desc = repo["description"]?.jsonPrimitive?.content ?: "No description"
-                    val stars = repo["stargazers_count"]?.jsonPrimitive?.int ?: 0
-                    val lang = repo["language"]?.jsonPrimitive?.content ?: "unknown"
-                    val url = repo["html_url"]?.jsonPrimitive?.content ?: ""
-                    appendLine("- **$name** ($lang, $stars stars)")
-                    appendLine("  $desc")
-                    appendLine("  $url")
+                appendLine("Found ${response.items.size} repositories for \"$query\":\n")
+                response.items.forEach { repo ->
+                    appendLine("- **${repo.fullName}** (${repo.language ?: "unknown"}, ${repo.stars} stars)")
+                    appendLine("  ${repo.description ?: "No description"}")
+                    appendLine("  ${repo.htmlUrl}")
                 }
             }
 
             McpCallToolResult(content = listOf(McpContent(text = text)))
+        } catch (e: GitHubAuthException) {
+            McpCallToolResult(
+                content = listOf(McpContent(text = "GitHub rate limit or auth error: ${e.message}")),
+                isError = true
+            )
         } catch (e: Exception) {
             McpCallToolResult(
                 content = listOf(McpContent(text = "GitHub API error: ${e.message}")),

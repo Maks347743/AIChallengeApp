@@ -1,6 +1,6 @@
 package com.example.aichallengeapp.feature.chat.data.tools
 
-import com.example.aichallengeapp.core.database.domain.repository.PeriodicTaskRepository
+import com.example.aichallengeapp.core.periodictask.domain.repository.PeriodicTaskRepository
 import com.example.aichallengeapp.core.mcp.model.FunctionDefinition
 import com.example.aichallengeapp.core.mcp.model.ToolDefinition
 import kotlinx.serialization.json.JsonObject
@@ -11,6 +11,8 @@ import kotlinx.serialization.json.putJsonArray
 class ListPeriodicTasksTool(
     private val periodicTaskRepository: PeriodicTaskRepository
 ) : LocalToolHandler {
+
+    override val isPeriodicTaskTool = true
 
     override val definition = ToolDefinition(
         function = FunctionDefinition(
@@ -37,10 +39,8 @@ class ListPeriodicTasksTool(
                 appendLine("  Description: ${task.prompt}")
                 val lastExec = task.lastExecutedAt
                 if (lastExec != null) {
-                    val time = java.time.Instant.ofEpochMilli(lastExec)
-                        .atZone(java.time.ZoneId.systemDefault())
-                        .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))
-                    appendLine("  Last executed: $time")
+                    val format = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                    appendLine("  Last executed: ${format.format(java.util.Date(lastExec))}")
                 }
                 appendLine()
             }

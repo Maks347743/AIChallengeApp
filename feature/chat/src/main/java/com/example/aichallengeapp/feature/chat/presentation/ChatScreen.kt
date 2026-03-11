@@ -33,7 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.CallSplit
+import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -105,7 +105,9 @@ fun ChatScreen(
     viewModel: ChatViewModel
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    @Suppress("KotlinConstantConditions")
     var clearAnimating by remember { mutableStateOf(false) }
+    @Suppress("KotlinConstantConditions")
     var showClearConfirmDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
@@ -186,7 +188,7 @@ fun ChatScreen(
                         enabled = state.messages.isNotEmpty() && !state.isLoading && state.branches.size < 2
                     ) {
                         Icon(
-                            imageVector = Icons.Default.CallSplit,
+                            imageVector = Icons.AutoMirrored.Filled.CallSplit,
                             contentDescription = stringResource(R.string.cd_create_checkpoint)
                         )
                     }
@@ -280,11 +282,17 @@ fun ChatScreen(
                 scrollJobs.bottomHide?.cancel()
             }
 
-            LaunchedEffect(state.messages.size, state.isLoading) {
-                if (state.messages.isNotEmpty()) {
+            val visibleMessages = remember(state.messages) {
+                state.messages.filter { msg ->
+                    msg.role != ChatMessage.ROLE_TOOL_CALL && msg.role != ChatMessage.ROLE_TOOL_RESULT
+                }
+            }
+
+            LaunchedEffect(visibleMessages.size, state.isLoading) {
+                if (visibleMessages.isNotEmpty()) {
                     suppressScrollDetection = true
                     listState.scrollToItem(
-                        index = state.messages.size - 1,
+                        index = visibleMessages.size - 1,
                         scrollOffset = SCROLL_ITEM_END_OFFSET
                     )
                     delay(SCROLL_SUPPRESS_DELAY_MS)
@@ -344,7 +352,7 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(dimensionResource(R.dimen.chat_vertical_spacing)),
                     contentPadding = PaddingValues(vertical = dimensionResource(R.dimen.chat_vertical_spacing))
                 ) {
-                    itemsIndexed(state.messages, key = { _, message -> message.id }) { _, message ->
+                    itemsIndexed(visibleMessages, key = { _, message -> message.id }) { _, message ->
                         ChatBubble(message = message, modifier = Modifier.animateItem(fadeOutSpec = null, placementSpec = null))
                     }
 
@@ -610,8 +618,6 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
             content = message.content,
             modifier = modifier
         )
-        ChatMessage.ROLE_TOOL_CALL,
-        ChatMessage.ROLE_TOOL_RESULT -> { /* Hidden from UI */ }
         ChatMessage.ROLE_USER -> {
             val cornerLarge = dimensionResource(R.dimen.chat_bubble_corner_large)
             val cornerSmall = dimensionResource(R.dimen.chat_bubble_corner_small)

@@ -7,17 +7,28 @@ import com.example.aichallengeapp.feature.chat.data.tools.LocalToolRegistry
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
+data class ToolExecutionResult(
+    val messages: List<ChatMessage>,
+    val hadPeriodicTaskTools: Boolean
+)
+
 class ExecuteToolCallsUseCase(
     private val mcpToolClient: McpToolClient,
     private val localToolRegistry: LocalToolRegistry,
     private val json: Json
 ) {
-    suspend operator fun invoke(toolCalls: List<ToolCallInfo>, chatId: String): List<ChatMessage> {
-        return toolCalls.map { toolCall ->
+    suspend operator fun invoke(toolCalls: List<ToolCallInfo>, chatId: String): ToolExecutionResult {
+        var hadPeriodicTaskTools = false
+
+        val messages = toolCalls.map { toolCall ->
             val arguments = try {
                 json.decodeFromString(JsonObject.serializer(), toolCall.arguments)
             } catch (_: Exception) {
                 null
+            }
+
+            if (localToolRegistry.isPeriodicTaskTool(toolCall.functionName)) {
+                hadPeriodicTaskTools = true
             }
 
             val resultText = if (localToolRegistry.isLocalTool(toolCall.functionName)) {
@@ -33,5 +44,7 @@ class ExecuteToolCallsUseCase(
                 id = toolCall.id
             )
         }
+
+        return ToolExecutionResult(messages, hadPeriodicTaskTools)
     }
 }

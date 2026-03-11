@@ -1,8 +1,8 @@
 package com.example.aichallengeapp.feature.chat.data.tools
 
-import com.example.aichallengeapp.core.database.domain.PeriodicTaskManager
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTask
-import com.example.aichallengeapp.core.database.domain.repository.PeriodicTaskRepository
+import com.example.aichallengeapp.core.periodictask.domain.PeriodicTaskManager
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTask
+import com.example.aichallengeapp.core.periodictask.domain.repository.PeriodicTaskRepository
 import com.example.aichallengeapp.core.mcp.model.FunctionDefinition
 import com.example.aichallengeapp.core.mcp.model.ToolDefinition
 import kotlinx.serialization.json.JsonObject
@@ -19,6 +19,8 @@ class CreatePeriodicTaskTool(
     private val periodicTaskRepository: PeriodicTaskRepository,
     private val periodicTaskManager: PeriodicTaskManager
 ) : LocalToolHandler {
+
+    override val isPeriodicTaskTool = true
 
     override val definition = ToolDefinition(
         function = FunctionDefinition(

@@ -5,8 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import com.example.aichallengeapp.core.database.di.databaseModule
-import com.example.aichallengeapp.core.database.domain.PeriodicTaskManager
-import com.example.aichallengeapp.core.database.domain.model.PeriodicTaskConstants
+import com.example.aichallengeapp.core.periodictask.domain.PeriodicTaskManager
+import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskConstants
 import com.example.aichallengeapp.di.appModule
 import com.example.aichallengeapp.feature.chat.di.chatModule
 import com.example.aichallengeapp.feature.chatlist.di.chatListModule

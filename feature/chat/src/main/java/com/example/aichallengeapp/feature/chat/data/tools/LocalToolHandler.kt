@@ -5,5 +5,6 @@ import kotlinx.serialization.json.JsonObject
 
 interface LocalToolHandler {
     val definition: ToolDefinition
+    val isPeriodicTaskTool: Boolean get() = false
     suspend fun execute(arguments: JsonObject?, chatId: String): String
 }
