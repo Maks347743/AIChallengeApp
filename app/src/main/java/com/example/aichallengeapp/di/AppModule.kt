@@ -2,6 +2,15 @@ package com.example.aichallengeapp.di
 
 import com.example.aichallengeapp.BuildConfig
 import com.example.aichallengeapp.data.ApiKeyStorage
+import com.example.aichallengeapp.feature.chat.data.tools.CreatePeriodicTaskTool
+import com.example.aichallengeapp.feature.chat.data.tools.ListPeriodicTasksTool
+import com.example.aichallengeapp.feature.chat.data.tools.LocalToolRegistry
+import com.example.aichallengeapp.feature.chat.data.tools.StopPeriodicTaskTool
+import com.example.aichallengeapp.service.PeriodicTaskExecutor
+import com.example.aichallengeapp.service.PeriodicTaskServiceControllerImpl
+import com.example.aichallengeapp.core.database.domain.PeriodicTaskManager
+import com.example.aichallengeapp.core.database.domain.PeriodicTaskServiceController
+import com.example.aichallengeapp.feature.settings.domain.model.DeepSeekModel
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -22,6 +31,29 @@ val appModule = module {
     }
 
     single(named("mcpBaseUrl")) { BuildConfig.MCP_SERVER_URL }
+
+    single<PeriodicTaskServiceController> { PeriodicTaskServiceControllerImpl(get()) }
+    single { PeriodicTaskManager(get(), get()) }
+
+    single {
+        PeriodicTaskExecutor(
+            mcpToolClient = get(),
+            periodicTaskRepository = get(),
+            chatRepository = get(),
+            json = get(named("appJson")),
+            summarizationModel = DeepSeekModel.DEEPSEEK_CHAT.id
+        )
+    }
+
+    single<LocalToolRegistry> {
+        LocalToolRegistry(
+            listOf(
+                CreatePeriodicTaskTool(get(), get()),
+                StopPeriodicTaskTool(get(), get()),
+                ListPeriodicTasksTool(get())
+            )
+        )
+    }
 }
 
 private fun resolveKey(

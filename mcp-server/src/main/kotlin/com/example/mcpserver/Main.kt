@@ -6,6 +6,7 @@ import com.example.mcpserver.mcp.ToolRegistry
 import com.example.mcpserver.routes.mcpRoutes
 import com.example.mcpserver.tools.GitHubGetUserTool
 import com.example.mcpserver.tools.GitHubSearchReposTool
+import com.example.mcpserver.tools.GitHubTrendingTool
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -27,6 +28,7 @@ fun main() {
     val registry = ToolRegistry()
     GitHubSearchReposTool(gitHubClient, json).register(registry)
     GitHubGetUserTool(gitHubClient, json).register(registry)
+    GitHubTrendingTool(gitHubClient, json).register(registry)
 
     val handler = McpRequestHandler(registry)
 

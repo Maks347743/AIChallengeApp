@@ -23,10 +23,9 @@ import kotlinx.serialization.json.Json
 class ChatRepositoryImpl(
     private val httpClient: HttpClient,
     private val apiKey: String,
-    private val baseUrl: String
+    private val baseUrl: String,
+    private val json: Json
 ) : ChatRepository {
-
-    private val json = Json { ignoreUnknownKeys = true }
 
     companion object {
         private const val CHAT_ENDPOINT = "/chat/completions"

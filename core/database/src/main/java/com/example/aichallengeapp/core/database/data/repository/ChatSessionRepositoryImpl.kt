@@ -9,10 +9,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 
-private val json = Json { ignoreUnknownKeys = true }
-
 class ChatSessionRepositoryImpl(
-    private val dao: ChatSessionDao
+    private val dao: ChatSessionDao,
+    private val json: Json
 ) : ChatSessionRepository {
 
     override fun getAllSessions(): Flow<List<ChatSession>> =
@@ -70,7 +69,8 @@ class ChatSessionRepositoryImpl(
             ?.mapKeys { (k, _) -> runCatching { TaskStage.valueOf(k) }.getOrNull() }
             ?.filterKeys { it != null }
             ?.mapKeys { (k, _) -> k!! }
-            ?: emptyMap()
+            ?: emptyMap(),
+        isPeriodicTask = isPeriodicTask
     )
 
     private fun ChatSession.toEntity() = ChatSessionEntity(
@@ -86,6 +86,7 @@ class ChatSessionRepositoryImpl(
         profileId = profileId,
         stageArtifactsJson = stageArtifacts
             .takeIf { it.isNotEmpty() }
-            ?.let { json.encodeToString(it.mapKeys { (k, _) -> k.name }) }
+            ?.let { json.encodeToString(it.mapKeys { (k, _) -> k.name }) },
+        isPeriodicTask = isPeriodicTask
     )
 }

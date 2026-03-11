@@ -7,8 +7,14 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [ChatSessionEntity::class, ChatMetricsEntity::class, UserProfileEntity::class],
-    version = 9,
+    entities = [
+        ChatSessionEntity::class,
+        ChatMetricsEntity::class,
+        UserProfileEntity::class,
+        PeriodicTaskEntity::class,
+        PeriodicTaskResultEntity::class
+    ],
+    version = 11,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -16,6 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun chatSessionDao(): ChatSessionDao
     abstract fun chatMetricsDao(): ChatMetricsDao
     abstract fun userProfileDao(): UserProfileDao
+    abstract fun periodicTaskDao(): PeriodicTaskDao
 }
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -87,5 +94,47 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
 val MIGRATION_8_9 = object : Migration(8, 9) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `user_profiles` ADD COLUMN `constraints_json` TEXT")
+    }
+}
+
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `periodic_tasks` (
+                `id` TEXT NOT NULL,
+                `chat_id` TEXT NOT NULL,
+                `tool_name` TEXT NOT NULL,
+                `tool_arguments_json` TEXT NOT NULL,
+                `interval_minutes` INTEGER NOT NULL,
+                `is_active` INTEGER NOT NULL DEFAULT 1,
+                `last_executed_at` INTEGER,
+                `created_at` INTEGER NOT NULL,
+                `prompt` TEXT NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `periodic_task_results` (
+                `id` TEXT NOT NULL,
+                `task_id` TEXT NOT NULL,
+                `result` TEXT NOT NULL,
+                `summary` TEXT NOT NULL,
+                `created_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`task_id`) REFERENCES `periodic_tasks`(`id`)
+                ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_periodic_task_results_task_id` ON `periodic_task_results` (`task_id`)")
+    }
+}
+
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `chat_sessions` ADD COLUMN `is_periodic_task` INTEGER NOT NULL DEFAULT 0")
     }
 }

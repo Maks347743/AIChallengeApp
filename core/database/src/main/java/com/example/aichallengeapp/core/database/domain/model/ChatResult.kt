@@ -7,7 +7,11 @@ data class ChatResult(
     val metrics: ResponseMetrics,
     val toolCalls: List<ToolCallInfo>? = null,
     val finishReason: String? = null
-)
+) {
+    companion object {
+        const val FINISH_REASON_TOOL_CALLS = "tool_calls"
+    }
+}
 
 @Serializable
 data class ToolCallInfo(

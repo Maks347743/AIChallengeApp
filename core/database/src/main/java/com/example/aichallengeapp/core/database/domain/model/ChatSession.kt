@@ -13,7 +13,8 @@ data class ChatSession(
     val currentTask: String? = null,
     val currentTaskStage: TaskStage = TaskStage.PLANNING,
     val profileId: String? = null,
-    val stageArtifacts: Map<TaskStage, String> = emptyMap()
+    val stageArtifacts: Map<TaskStage, String> = emptyMap(),
+    val isPeriodicTask: Boolean = false
 ) {
     fun previewText(wordCount: Int = CHAT_SESSION_TITLE_WORDS_COUNT): String {
         val last = messages.lastOrNull { it.role != ChatMessage.ROLE_SYSTEM } ?: return "New Chat"

@@ -4,9 +4,10 @@ import com.example.aichallengeapp.feature.settings.data.ChatSettingsRepositoryIm
 import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
 import com.example.aichallengeapp.feature.settings.presentation.SettingsViewModel
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 val settingsModule = module {
-    single<ChatSettingsRepository> { ChatSettingsRepositoryImpl(get()) }
+    single<ChatSettingsRepository> { ChatSettingsRepositoryImpl(get(), get(named("appJson"))) }
     viewModel { params -> SettingsViewModel(params.get(), get()) }
 }

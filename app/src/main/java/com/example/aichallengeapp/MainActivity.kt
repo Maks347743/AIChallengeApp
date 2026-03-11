@@ -9,7 +9,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
@@ -62,36 +64,46 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation(modifier: Modifier = Modifier) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val chatBackStack = remember { mutableStateListOf<Any>(ChatListRoute) }
+    val showBottomBar = selectedTab == 1 || chatBackStack.size == 1
 
     Scaffold(
+        modifier = Modifier.imePadding(),
+        contentWindowInsets = WindowInsets(0),
         bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    icon = { Icon(Icons.Default.ChatBubble, contentDescription = "Chats") },
-                    label = { Text("Chats") }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.Default.Explore, contentDescription = "Explore") },
-                    label = { Text("Explore") }
-                )
+            if (showBottomBar) {
+                NavigationBar {
+                    NavigationBarItem(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        icon = { Icon(Icons.Default.ChatBubble, contentDescription = "Chats") },
+                        label = { Text("Chats") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        icon = { Icon(Icons.Default.Explore, contentDescription = "Explore") },
+                        label = { Text("Explore") }
+                    )
+                }
             }
         }
     ) { innerPadding ->
         when (selectedTab) {
-            0 -> ChatsTab(modifier = modifier.padding(innerPadding))
+            0 -> ChatsTab(
+                backStack = chatBackStack,
+                modifier = modifier.padding(innerPadding)
+            )
             1 -> ExploreGitHubScreen(modifier = Modifier.padding(innerPadding))
         }
     }
 }
 
 @Composable
-private fun ChatsTab(modifier: Modifier = Modifier) {
-    val backStack = remember { mutableStateListOf<Any>(ChatListRoute) }
-
+private fun ChatsTab(
+    backStack: MutableList<Any>,
+    modifier: Modifier = Modifier
+) {
     NavDisplay(
         backStack = backStack,
         entryDecorators = listOf(

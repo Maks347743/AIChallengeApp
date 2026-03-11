@@ -11,26 +11,43 @@ import com.example.aichallengeapp.core.database.data.db.MIGRATION_5_6
 import com.example.aichallengeapp.core.database.data.db.MIGRATION_6_7
 import com.example.aichallengeapp.core.database.data.db.MIGRATION_7_8
 import com.example.aichallengeapp.core.database.data.db.MIGRATION_8_9
+import com.example.aichallengeapp.core.database.data.db.MIGRATION_9_10
+import com.example.aichallengeapp.core.database.data.db.MIGRATION_10_11
 import com.example.aichallengeapp.core.database.data.repository.ChatMetricsRepositoryImpl
 import com.example.aichallengeapp.core.database.data.repository.ChatSessionRepositoryImpl
+import com.example.aichallengeapp.core.database.data.repository.PeriodicTaskRepositoryImpl
 import com.example.aichallengeapp.core.database.data.repository.UserProfileRepositoryImpl
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
+import com.example.aichallengeapp.core.database.domain.repository.PeriodicTaskRepository
+import com.example.aichallengeapp.core.database.domain.model.PeriodicTaskMessageBus
 import com.example.aichallengeapp.core.database.domain.repository.UserProfileRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.serialization.json.Json
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 val databaseModule = module {
     single {
         Room.databaseBuilder(get<Context>(), AppDatabase::class.java, "app_db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
             .setQueryCoroutineContext(Dispatchers.IO)
             .build()
     }
     single { get<AppDatabase>().chatSessionDao() }
     single { get<AppDatabase>().chatMetricsDao() }
     single { get<AppDatabase>().userProfileDao() }
-    single<ChatSessionRepository> { ChatSessionRepositoryImpl(get()) }
+    single { get<AppDatabase>().periodicTaskDao() }
+    single<ChatSessionRepository> { ChatSessionRepositoryImpl(get(), get(named("appJson"))) }
     single<ChatMetricsRepository> { ChatMetricsRepositoryImpl(get()) }
-    single<UserProfileRepository> { UserProfileRepositoryImpl(get()) }
+    single<UserProfileRepository> { UserProfileRepositoryImpl(get(), get(named("appJson"))) }
+    single<PeriodicTaskRepository> { PeriodicTaskRepositoryImpl(get()) }
+    single { PeriodicTaskMessageBus() }
+    single(named("appJson")) {
+        Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+            isLenient = true
+        }
+    }
 }

@@ -11,6 +11,7 @@ import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRep
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
 import com.example.aichallengeapp.core.database.domain.repository.UserProfileRepository
 import com.example.aichallengeapp.core.mcp.model.ToolDefinition
+import com.example.aichallengeapp.core.database.domain.model.PeriodicTaskMessageBus
 import kotlinx.serialization.json.Json
 import com.example.aichallengeapp.feature.chat.domain.PromptTemplates
 import com.example.aichallengeapp.feature.chat.domain.usecase.BuildSystemPromptUseCase
@@ -37,6 +38,7 @@ private const val MAX_BRANCHES = 2
 private const val FIRST_BRANCH_INDEX = 1
 private const val STAGE_LOG_TAG = "StageArtifacts"
 private const val MAX_TOOL_ITERATIONS = 5
+private val PERIODIC_TASK_TOOLS = setOf("create_periodic_task", "stop_periodic_task", "list_periodic_tasks")
 
 class ChatViewModel(
     private val chatId: String,
@@ -54,7 +56,8 @@ class ChatViewModel(
     private val settingsRepository: ChatSettingsRepository,
     private val sessionRepository: ChatSessionRepository,
     private val metricsRepository: ChatMetricsRepository,
-    private val userProfileRepository: UserProfileRepository
+    private val userProfileRepository: UserProfileRepository,
+    private val periodicTaskMessageBus: PeriodicTaskMessageBus
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ChatState())
@@ -83,7 +86,7 @@ class ChatViewModel(
                     if (target != null) {
                         cachedSession = target
                         _activeChatId.value = target.id
-                        _state.update { it.copy(messages = target.messages, activeChatId = target.id, currentTaskStage = target.currentTaskStage, currentTask = target.currentTask) }
+                        _state.update { it.copy(messages = target.messages, activeChatId = target.id, currentTaskStage = target.currentTaskStage, currentTask = target.currentTask, isPeriodicTask = target.isPeriodicTask) }
                         currentTask = target.currentTask
                         currentStageArtifacts.clear()
                         currentStageArtifacts.putAll(target.stageArtifacts)
@@ -92,7 +95,7 @@ class ChatViewModel(
                         return@launch
                     }
                 }
-                _state.update { it.copy(messages = session.messages, activeChatId = chatId, currentTaskStage = session.currentTaskStage, currentTask = session.currentTask) }
+                _state.update { it.copy(messages = session.messages, activeChatId = chatId, currentTaskStage = session.currentTaskStage, currentTask = session.currentTask, isPeriodicTask = session.isPeriodicTask) }
                 currentTask = session.currentTask
                 currentStageArtifacts.clear()
                 currentStageArtifacts.putAll(session.stageArtifacts)
@@ -108,8 +111,21 @@ class ChatViewModel(
                 .flatMapLatest { id -> metricsRepository.observeMetrics(id) }
                 .collect { metrics -> _state.update { it.copy(chatMetrics = metrics) } }
         }
-        // Pre-load tool definitions in background
+        // Preload tool definitions in background
         viewModelScope.launch { loadToolDefinitions() }
+        // Collect periodic task results and append to chat
+        viewModelScope.launch {
+            periodicTaskMessageBus.messages.collect { message ->
+                if (message.chatId == activeChatId) {
+                    val periodicMessage = ChatMessage(
+                        role = ChatMessage.ROLE_ASSISTANT,
+                        content = "\uD83D\uDD04 **Periodic task** (${message.toolName}):\n${message.summary}"
+                    )
+                    _state.update { it.copy(messages = it.messages + periodicMessage) }
+                    persistSession(_state.value.messages)
+                }
+            }
+        }
     }
 
     private suspend fun loadToolDefinitions() {
@@ -175,7 +191,8 @@ class ChatViewModel(
                     error = null,
                     chatMetrics = null,
                     currentTaskStage = session.currentTaskStage,
-                    currentTask = session.currentTask
+                    currentTask = session.currentTask,
+                    isPeriodicTask = session.isPeriodicTask
                 )
             }
         }
@@ -254,7 +271,7 @@ class ChatViewModel(
     private fun clearChat() {
         currentTask = null
         currentStageArtifacts.clear()
-        _state.update { it.copy(showMetrics = false, messages = emptyList(), error = null, currentTaskStage = TaskStage.PLANNING, currentTask = null) }
+        _state.update { it.copy(showMetrics = false, messages = emptyList(), error = null, currentTaskStage = TaskStage.PLANNING, currentTask = null, isPeriodicTask = false) }
         viewModelScope.launch {
             metricsRepository.deleteMetrics(activeChatId)
             persistSession(emptyList())
@@ -302,7 +319,9 @@ class ChatViewModel(
             val profile = currentProfileId?.let { userProfileRepository.getById(it) }
             val globalPrefix = profile?.description ?: ""
 
-            processStageAndTaskDetection(existingMessages, userMessage, settings.model.id)
+            if (!_state.value.isPeriodicTask) {
+                processStageAndTaskDetection(existingMessages, userMessage, settings.model.id)
+            }
 
             val constraints = profile?.constraints ?: emptyList()
             val tools = cachedToolDefinitions
@@ -347,7 +366,7 @@ class ChatViewModel(
             if (detectedTask != null) {
                 currentTask = detectedTask
                 currentStageArtifacts.clear()
-                _state.update { it.copy(currentTaskStage = TaskStage.PLANNING, currentTask = detectedTask) }
+                _state.update { it.copy(currentTaskStage = TaskStage.PLANNING, currentTask = detectedTask, isPeriodicTask = false) }
             }
         }
     }
@@ -356,14 +375,25 @@ class ChatViewModel(
         globalPrefix: String,
         chatPrompt: String,
         constraints: List<Constraint> = emptyList()
-    ): String = buildSystemPromptUseCase(
-        globalPrefix = globalPrefix,
-        chatPrompt = chatPrompt,
-        currentTaskStage = _state.value.currentTaskStage,
-        stageArtifacts = currentStageArtifacts.toMap(),
-        constraints = constraints,
-        currentTask = currentTask
-    )
+    ): String = if (_state.value.isPeriodicTask) {
+        buildSystemPromptUseCase(
+            globalPrefix = globalPrefix,
+            chatPrompt = chatPrompt,
+            currentTaskStage = TaskStage.PLANNING,
+            stageArtifacts = emptyMap(),
+            constraints = constraints,
+            currentTask = null
+        )
+    } else {
+        buildSystemPromptUseCase(
+            globalPrefix = globalPrefix,
+            chatPrompt = chatPrompt,
+            currentTaskStage = _state.value.currentTaskStage,
+            stageArtifacts = currentStageArtifacts.toMap(),
+            constraints = constraints,
+            currentTask = currentTask
+        )
+    }
 
     private fun logStageTransition(from: TaskStage, to: TaskStage, newArtifact: String?) {
         val log = Timber.tag(STAGE_LOG_TAG)
@@ -426,10 +456,14 @@ class ChatViewModel(
     ): ChatResult {
         var result = initialResult
         var iterations = 0
-
-        while (result.finishReason == "tool_calls" && result.toolCalls != null && iterations < MAX_TOOL_ITERATIONS) {
+        while (result.finishReason == ChatResult.FINISH_REASON_TOOL_CALLS && result.toolCalls != null && iterations < MAX_TOOL_ITERATIONS) {
             iterations++
             Timber.tag("ChatViewModel").d("Tool calling iteration $iterations, ${result.toolCalls!!.size} tools to call")
+
+            // Mark as periodic task if periodic tools are called
+            if (result.toolCalls!!.any { it.functionName in PERIODIC_TASK_TOOLS }) {
+                _state.update { it.copy(isPeriodicTask = true) }
+            }
 
             // Add the assistant's tool_call message to state (hidden in UI)
             // Content stores serialized ToolCallInfo list for reconstruction in ChatRepositoryImpl
@@ -441,7 +475,7 @@ class ChatViewModel(
             _state.update { it.copy(messages = it.messages + toolCallMessage) }
 
             // Execute all tool calls
-            val toolResultMessages = executeToolCallsUseCase(result.toolCalls!!)
+            val toolResultMessages = executeToolCallsUseCase(result.toolCalls!!, activeChatId)
             _state.update { it.copy(messages = it.messages + toolResultMessages) }
 
             // Rebuild history with tool results and send again
@@ -663,7 +697,8 @@ class ChatViewModel(
                 currentTask = currentTask,
                 currentTaskStage = _state.value.currentTaskStage,
                 profileId = currentProfileId,
-                stageArtifacts = currentStageArtifacts.toMap()
+                stageArtifacts = currentStageArtifacts.toMap(),
+                isPeriodicTask = _state.value.isPeriodicTask
             )
             cachedSession = session
             sessionRepository.upsertSession(session)

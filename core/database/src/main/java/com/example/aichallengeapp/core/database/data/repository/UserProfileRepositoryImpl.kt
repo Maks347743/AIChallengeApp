@@ -10,7 +10,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 
 class UserProfileRepositoryImpl(
-    private val dao: UserProfileDao
+    private val dao: UserProfileDao,
+    private val json: Json
 ) : UserProfileRepository {
 
     override fun getAllProfiles(): Flow<List<UserProfile>> =
@@ -25,8 +26,6 @@ class UserProfileRepositoryImpl(
     override suspend fun delete(profileId: String) {
         dao.deleteById(profileId)
     }
-
-    private val json = Json { ignoreUnknownKeys = true }
 
     private fun UserProfileEntity.toDomain() = UserProfile(
         id = id,

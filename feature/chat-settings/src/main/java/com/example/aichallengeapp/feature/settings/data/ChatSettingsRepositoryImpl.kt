@@ -5,10 +5,9 @@ import com.example.aichallengeapp.feature.settings.domain.model.ChatSettings
 import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
 import kotlinx.serialization.json.Json
 
-private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-
 class ChatSettingsRepositoryImpl(
-    private val sessionRepository: ChatSessionRepository
+    private val sessionRepository: ChatSessionRepository,
+    private val json: Json
 ) : ChatSettingsRepository {
 
     override suspend fun load(chatId: String): ChatSettings {

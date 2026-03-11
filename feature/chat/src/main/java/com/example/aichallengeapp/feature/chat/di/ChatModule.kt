@@ -64,20 +64,16 @@ val chatModule = module {
         ChatRepositoryImpl(
             httpClient = get(),
             apiKey = get(named("apiKey")),
-            baseUrl = get(named("baseUrl"))
+            baseUrl = get(named("baseUrl")),
+            json = get(named("appJson"))
         )
     }
 
     single {
-        val mcpJson = Json {
-            ignoreUnknownKeys = true
-            encodeDefaults = true
-            isLenient = true
-        }
         McpToolClient(
             httpClient = get(named("mcpClient")),
             mcpBaseUrl = get(named("mcpBaseUrl")),
-            json = mcpJson
+            json = get(named("appJson"))
         )
     }
 
@@ -91,10 +87,11 @@ val chatModule = module {
     factory {
         ExecuteToolCallsUseCase(
             mcpToolClient = get(),
-            json = Json { ignoreUnknownKeys = true }
+            localToolRegistry = get(),
+            json = get(named("appJson"))
         )
     }
-    factory { GetToolDefinitionsUseCase(get()) }
+    factory { GetToolDefinitionsUseCase(get(), get()) }
 
     viewModel { params ->
         ChatViewModel(
@@ -113,7 +110,8 @@ val chatModule = module {
             settingsRepository = get(),
             sessionRepository = get(),
             metricsRepository = get(),
-            userProfileRepository = get()
+            userProfileRepository = get(),
+            periodicTaskMessageBus = get()
         )
     }
 }

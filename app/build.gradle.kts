@@ -72,6 +72,7 @@ android {
 
 dependencies {
     implementation(project(":core:database"))
+    implementation(project(":core:mcp"))
     implementation(project(":feature:chat-settings"))
     implementation(project(":feature:chat"))
     implementation(project(":feature:chat-list"))
@@ -104,6 +105,9 @@ dependencies {
 
     // Security
     implementation(libs.androidx.security.crypto)
+
+    // Serialization
+    implementation(libs.kotlinx.serialization.json)
 
     // Timber
     implementation(libs.timber)
