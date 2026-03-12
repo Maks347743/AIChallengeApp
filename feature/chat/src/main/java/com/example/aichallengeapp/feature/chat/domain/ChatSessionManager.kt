@@ -1,7 +1,6 @@
 package com.example.aichallengeapp.feature.chat.domain
 
 import com.example.aichallengeapp.core.database.domain.model.ChatSession
-import com.example.aichallengeapp.core.database.domain.model.TaskStage
 import com.example.aichallengeapp.core.database.domain.repository.ChatSessionRepository
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
 import com.example.aichallengeapp.feature.chat.presentation.BranchInfo
@@ -61,10 +60,7 @@ class ChatSessionManager(
     suspend fun persistSession(
         chatId: String,
         messages: List<ChatMessage>,
-        currentTask: String?,
-        currentTaskStage: TaskStage,
         profileId: String?,
-        stageArtifacts: Map<TaskStage, String>,
         isPeriodicTask: Boolean
     ) {
         if (messages.isEmpty()) {
@@ -75,10 +71,7 @@ class ChatSessionManager(
                 id = chatId,
                 messages = messages,
                 updatedAt = System.currentTimeMillis(),
-                currentTask = currentTask,
-                currentTaskStage = currentTaskStage,
                 profileId = profileId,
-                stageArtifacts = stageArtifacts,
                 isPeriodicTask = isPeriodicTask
             )
             cachedSession = session

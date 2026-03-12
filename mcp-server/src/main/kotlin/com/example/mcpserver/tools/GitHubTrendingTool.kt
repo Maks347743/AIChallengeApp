@@ -35,7 +35,7 @@ class GitHubTrendingTool(
             }
             putJsonObject("period") {
                 put("type", "string")
-                put("description", "Time period: daily, weekly, or monthly. Default: daily")
+                put("description", "Time period: daily, weekly, monthly, yearly, or all_time. Default: daily")
             }
             putJsonObject("maxResults") {
                 put("type", "integer")
@@ -53,14 +53,19 @@ class GitHubTrendingTool(
         val sinceDate = when (period) {
             "weekly" -> LocalDate.now().minusWeeks(1)
             "monthly" -> LocalDate.now().minusMonths(1)
+            "yearly" -> LocalDate.now().minusYears(1)
+            "all_time" -> null
             else -> LocalDate.now().minusDays(1)
         }
-        val dateStr = sinceDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
 
         val query = buildString {
-            append("created:>$dateStr")
+            if (sinceDate != null) {
+                append("created:>${sinceDate.format(DateTimeFormatter.ISO_LOCAL_DATE)}")
+            } else {
+                append("stars:>1000")
+            }
             if (!language.isNullOrBlank()) {
-                append("+language:$language")
+                append(" language:$language")
             }
         }
 
@@ -77,7 +82,8 @@ class GitHubTrendingTool(
 
             val text = buildString {
                 val langLabel = if (!language.isNullOrBlank()) " ($language)" else ""
-                appendLine("Trending repositories$langLabel for $period period (since $dateStr):\n")
+                val periodLabel = if (sinceDate != null) "$period period (since ${sinceDate.format(DateTimeFormatter.ISO_LOCAL_DATE)})" else "all time"
+                appendLine("Trending repositories$langLabel for $periodLabel:\n")
                 response.items.forEach { repo ->
                     appendLine("- **${repo.fullName}** (${repo.language ?: "unknown"}, ${repo.stars} stars)")
                     appendLine("  ${repo.description ?: "No description"}")

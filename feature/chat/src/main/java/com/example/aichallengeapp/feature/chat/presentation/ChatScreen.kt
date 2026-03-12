@@ -81,7 +81,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
 import com.example.aichallengeapp.core.database.domain.model.ChatMetrics
-import com.example.aichallengeapp.core.database.domain.model.TaskStage
+
 import com.example.aichallengeapp.feature.chat.R
 import com.example.aichallengeapp.feature.chat.ui.theme.SendBlue
 import com.example.aichallengeapp.feature.chat.ui.theme.SendBlueDark
@@ -105,9 +105,7 @@ fun ChatScreen(
     viewModel: ChatViewModel
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    @Suppress("KotlinConstantConditions")
     var clearAnimating by remember { mutableStateOf(false) }
-    @Suppress("KotlinConstantConditions")
     var showClearConfirmDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
@@ -232,10 +230,6 @@ fun ChatScreen(
         ) {
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
-
-            if (state.currentTask != null && !state.isPeriodicTask) {
-                TaskStageIndicator(currentStage = state.currentTaskStage)
-            }
 
             if (state.branches.size > 1) {
                 BranchSwitcherRow(
@@ -671,71 +665,6 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-private fun TaskStageIndicator(
-    currentStage: TaskStage,
-    modifier: Modifier = Modifier
-) {
-    val stages = listOf(
-        TaskStage.PLANNING to stringResource(R.string.stage_planning),
-        TaskStage.EXECUTION to stringResource(R.string.stage_execution),
-        TaskStage.EVALUATION to stringResource(R.string.stage_evaluation),
-        TaskStage.DONE to stringResource(R.string.stage_done)
-    )
-    val currentIndex = stages.indexOfFirst { it.first == currentStage }
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            stages.forEachIndexed { index, (_, label) ->
-                val isActive = index == currentIndex
-                val isDone = index < currentIndex
-
-                val textColor: Color = when {
-                    isActive -> MaterialTheme.colorScheme.primary
-                    isDone -> MaterialTheme.colorScheme.secondary
-                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                }
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(textColor)
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = textColor,
-                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
-                    )
-                }
-
-                if (index < stages.lastIndex) {
-                    HorizontalDivider(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 4.dp),
-                        color = if (isDone) MaterialTheme.colorScheme.secondary
-                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
-                        thickness = 1.dp
-                    )
-                }
-            }
-        }
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun ChatBubbleUserPreview() {
@@ -772,14 +701,6 @@ private fun MetricsBottomSheetContentPreview() {
         MetricsBottomSheetContent(
             metrics = ChatMetrics(chatId = "preview", lastRequestTokens = 150, lastResponseTokens = 320, totalTokens = 1240)
         )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun TaskStageIndicatorPreview() {
-    MaterialTheme {
-        TaskStageIndicator(currentStage = TaskStage.EXECUTION)
     }
 }
 

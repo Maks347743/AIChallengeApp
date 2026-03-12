@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
 import com.example.aichallengeapp.core.database.domain.model.ChatResult
 import com.example.aichallengeapp.core.database.domain.model.Constraint
-import com.example.aichallengeapp.core.database.domain.model.TaskStage
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
 import com.example.aichallengeapp.core.database.domain.repository.UserProfileRepository
 import com.example.aichallengeapp.core.mcp.model.ToolDefinition
@@ -14,10 +13,7 @@ import kotlinx.serialization.json.Json
 import com.example.aichallengeapp.feature.chat.domain.ChatSessionManager
 import com.example.aichallengeapp.feature.chat.domain.PromptTemplates
 import com.example.aichallengeapp.feature.chat.domain.usecase.BuildSystemPromptUseCase
-import com.example.aichallengeapp.feature.chat.domain.usecase.DetectNewTaskUseCase
-import com.example.aichallengeapp.feature.chat.domain.usecase.DetectStageTransitionUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.ExecuteToolCallsUseCase
-import com.example.aichallengeapp.feature.chat.domain.usecase.GenerateStageArtifactUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.GetToolDefinitionsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateMetricsUseCase
@@ -34,7 +30,6 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 private const val MAX_CONSTRAINT_RETRIES = 3
-private const val STAGE_LOG_TAG = "StageArtifacts"
 private const val MAX_TOOL_ITERATIONS = 5
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -43,9 +38,6 @@ class ChatViewModel(
     private val initialBranchIndex: Int,
     private val initialProfileId: String?,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
-    private val detectStageTransitionUseCase: DetectStageTransitionUseCase,
-    private val detectNewTaskUseCase: DetectNewTaskUseCase,
-    private val generateStageArtifactUseCase: GenerateStageArtifactUseCase,
     private val validateConstraintsUseCase: ValidateConstraintsUseCase,
     private val buildSystemPromptUseCase: BuildSystemPromptUseCase,
     private val updateMetricsUseCase: UpdateMetricsUseCase,
@@ -78,10 +70,7 @@ class ChatViewModel(
                     it.copy(
                         messages = target.messages,
                         activeChatId = target.id,
-                        currentTaskStage = target.currentTaskStage,
-                        currentTask = target.currentTask,
                         currentProfileId = target.profileId ?: initialProfileId,
-                        stageArtifacts = target.stageArtifacts,
                         isPeriodicTask = target.isPeriodicTask,
                         branches = result.branches,
                         activeBranchIndex = result.activeBranchIndex
@@ -92,10 +81,7 @@ class ChatViewModel(
                     it.copy(
                         messages = session.messages,
                         activeChatId = chatId,
-                        currentTaskStage = session.currentTaskStage,
-                        currentTask = session.currentTask,
                         currentProfileId = session.profileId ?: initialProfileId,
-                        stageArtifacts = session.stageArtifacts,
                         isPeriodicTask = session.isPeriodicTask,
                         branches = result.branches,
                         activeBranchIndex = result.activeBranchIndex
@@ -179,9 +165,6 @@ class ChatViewModel(
                     inputText = "",
                     error = null,
                     chatMetrics = null,
-                    currentTaskStage = session.currentTaskStage,
-                    currentTask = session.currentTask,
-                    stageArtifacts = session.stageArtifacts,
                     isPeriodicTask = session.isPeriodicTask
                 )
             }
@@ -210,9 +193,6 @@ class ChatViewModel(
                 showMetrics = false,
                 messages = emptyList(),
                 error = null,
-                currentTaskStage = TaskStage.PLANNING,
-                currentTask = null,
-                stageArtifacts = emptyMap(),
                 isPeriodicTask = false
             )
         }
@@ -257,10 +237,6 @@ class ChatViewModel(
             val profile = _state.value.currentProfileId?.let { userProfileRepository.getById(it) }
             val globalPrefix = profile?.description ?: ""
 
-            if (!_state.value.isPeriodicTask) {
-                processStageAndTaskDetection(existingMessages, userMessage, settings.model.id)
-            }
-
             val constraints = profile?.constraints ?: emptyList()
             val tools = cachedToolDefinitions
 
@@ -278,90 +254,16 @@ class ChatViewModel(
         }
     }
 
-    private suspend fun processStageAndTaskDetection(
-        existingMessages: List<ChatMessage>,
-        userMessage: ChatMessage,
-        model: String
-    ) {
-        val currentStage = _state.value.currentTaskStage
-        val newStage = detectStageTransitionUseCase(existingMessages, userMessage, currentStage, model)
-        if (newStage != null && newStage != currentStage) {
-            val allStages = TaskStage.entries
-            val oldIndex = allStages.indexOf(currentStage)
-            val newIndex = allStages.indexOf(newStage)
-            val artifacts = _state.value.stageArtifacts.toMutableMap()
-            var newArtifact: String? = null
-            if (newIndex > oldIndex) {
-                val artifact = generateStageArtifactUseCase(currentStage, _state.value.messages, model)
-                artifacts[currentStage] = artifact
-                newArtifact = artifact
-            } else {
-                artifacts.remove(newStage)
-            }
-            logStageTransition(currentStage, newStage, newArtifact, artifacts)
-            _state.update { it.copy(currentTaskStage = newStage, stageArtifacts = artifacts) }
-        } else {
-            val detectedTask = detectNewTaskUseCase(existingMessages, userMessage, currentStage, model)
-            if (detectedTask != null) {
-                _state.update {
-                    it.copy(
-                        currentTaskStage = TaskStage.PLANNING,
-                        currentTask = detectedTask,
-                        stageArtifacts = emptyMap(),
-                        isPeriodicTask = false
-                    )
-                }
-            }
-        }
-    }
-
     private fun effectiveSystemPrompt(
         globalPrefix: String,
         chatPrompt: String,
         constraints: List<Constraint> = emptyList()
     ): String {
-        val s = _state.value
-        return if (s.isPeriodicTask) {
-            buildSystemPromptUseCase(
-                globalPrefix = globalPrefix,
-                chatPrompt = chatPrompt,
-                currentTaskStage = TaskStage.PLANNING,
-                stageArtifacts = emptyMap(),
-                constraints = constraints,
-                currentTask = null
-            )
-        } else {
-            buildSystemPromptUseCase(
-                globalPrefix = globalPrefix,
-                chatPrompt = chatPrompt,
-                currentTaskStage = s.currentTaskStage,
-                stageArtifacts = s.stageArtifacts,
-                constraints = constraints,
-                currentTask = s.currentTask
-            )
-        }
-    }
-
-    private fun logStageTransition(from: TaskStage, to: TaskStage, newArtifact: String?, artifacts: Map<TaskStage, String>) {
-        val log = Timber.tag(STAGE_LOG_TAG)
-        val sep = "─".repeat(36)
-        log.d("┌$sep")
-        log.d("│  STAGE TRANSITION")
-        log.d("│  {${from.name}} → {${to.name}}")
-        if (newArtifact != null) {
-            log.d("├─── ARTIFACT [${from.name}] ${"─".repeat(16)}")
-            newArtifact.lines().forEach { log.d("│  $it") }
-        }
-        if (artifacts.isNotEmpty()) {
-            log.d("├─── ACTIVE ARTIFACTS ${"─".repeat(15)}")
-            artifacts.forEach { (stage, artifact) ->
-                artifact.lines().forEachIndexed { i, line ->
-                    if (i == 0) log.d("│  [${stage.name}] $line")
-                    else log.d("│  $line")
-                }
-            }
-        }
-        log.d("└$sep")
+        return buildSystemPromptUseCase(
+            globalPrefix = globalPrefix,
+            chatPrompt = chatPrompt,
+            constraints = constraints
+        )
     }
 
     private suspend fun sendAndProcessResponse(
@@ -386,6 +288,7 @@ class ChatViewModel(
                     val currentMessages = _state.value.messages
                     val finalMessages = buildFinalMessages(finalContent, currentMessages)
                     _state.update { it.copy(messages = finalMessages, isLoading = false) }
+
                     persistSession(finalMessages)
                     updateMetrics(finalResult.metrics)
                 }
@@ -637,10 +540,7 @@ class ChatViewModel(
         sessionManager.persistSession(
             chatId = activeChatId,
             messages = messages,
-            currentTask = s.currentTask,
-            currentTaskStage = s.currentTaskStage,
             profileId = s.currentProfileId,
-            stageArtifacts = s.stageArtifacts,
             isPeriodicTask = s.isPeriodicTask
         )
     }

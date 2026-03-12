@@ -10,10 +10,7 @@ data class ChatSession(
     val settingsJson: String? = null,
     val checkpointGroupId: String? = null,
     val branchIndex: Int = 0,
-    val currentTask: String? = null,
-    val currentTaskStage: TaskStage = TaskStage.PLANNING,
     val profileId: String? = null,
-    val stageArtifacts: Map<TaskStage, String> = emptyMap(),
     val isPeriodicTask: Boolean = false
 ) {
     fun previewText(wordCount: Int = CHAT_SESSION_TITLE_WORDS_COUNT): String {

@@ -6,6 +6,7 @@ import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClient
 import com.example.aichallengeapp.feature.chat.data.tools.LocalToolRegistry
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import timber.log.Timber
 
 data class ToolExecutionResult(
     val messages: List<ChatMessage>,
@@ -19,6 +20,7 @@ class ExecuteToolCallsUseCase(
 ) {
     suspend operator fun invoke(toolCalls: List<ToolCallInfo>, chatId: String): ToolExecutionResult {
         var hadPeriodicTaskTools = false
+        Timber.tag(TAG).d("Executing ${toolCalls.size} tool calls")
 
         val messages = toolCalls.map { toolCall ->
             val arguments = try {
@@ -31,12 +33,22 @@ class ExecuteToolCallsUseCase(
                 hadPeriodicTaskTools = true
             }
 
-            val resultText = if (localToolRegistry.isLocalTool(toolCall.functionName)) {
-                localToolRegistry.execute(toolCall.functionName, arguments, chatId)
-            } else {
-                val result = mcpToolClient.callTool(toolCall.functionName, arguments)
-                result.content.mapNotNull { it.text }.joinToString("\n")
+            val isLocal = localToolRegistry.isLocalTool(toolCall.functionName)
+            Timber.tag(TAG).d("▶ ${toolCall.functionName} [${if (isLocal) "local" else "mcp"}] | args=${toolCall.arguments.take(200)}")
+
+            val resultText = try {
+                if (isLocal) {
+                    localToolRegistry.execute(toolCall.functionName, arguments, chatId)
+                } else {
+                    val result = mcpToolClient.callTool(toolCall.functionName, arguments)
+                    result.content.mapNotNull { it.text }.joinToString("\n")
+                }
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "✖ ${toolCall.functionName} FAILED")
+                "Tool execution failed: ${e.message}"
             }
+
+            Timber.tag(TAG).d("✔ ${toolCall.functionName} | ${resultText.length} chars | ${resultText.take(150).replace("\n", " ")}")
 
             ChatMessage(
                 role = ChatMessage.ROLE_TOOL_RESULT,
@@ -46,5 +58,9 @@ class ExecuteToolCallsUseCase(
         }
 
         return ToolExecutionResult(messages, hadPeriodicTaskTools)
+    }
+
+    companion object {
+        private const val TAG = "ToolExecution"
     }
 }

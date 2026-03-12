@@ -5,10 +5,7 @@ import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClient
 import com.example.aichallengeapp.feature.chat.data.repository.ChatRepositoryImpl
 import com.example.aichallengeapp.feature.chat.domain.ChatSessionManager
 import com.example.aichallengeapp.feature.chat.domain.usecase.BuildSystemPromptUseCase
-import com.example.aichallengeapp.feature.chat.domain.usecase.DetectNewTaskUseCase
-import com.example.aichallengeapp.feature.chat.domain.usecase.DetectStageTransitionUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.ExecuteToolCallsUseCase
-import com.example.aichallengeapp.feature.chat.domain.usecase.GenerateStageArtifactUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.GetToolDefinitionsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateMetricsUseCase
@@ -79,9 +76,6 @@ val chatModule = module {
     }
 
     factory { SendChatMessageUseCase(get()) }
-    factory { DetectStageTransitionUseCase(get()) }
-    factory { DetectNewTaskUseCase(get()) }
-    factory { GenerateStageArtifactUseCase(get()) }
     factory { ValidateConstraintsUseCase() }
     factory { BuildSystemPromptUseCase() }
     factory { UpdateMetricsUseCase(get()) }
@@ -101,9 +95,6 @@ val chatModule = module {
             initialBranchIndex = params.get(),
             initialProfileId = params.get(),
             sendChatMessageUseCase = get(),
-            detectStageTransitionUseCase = get(),
-            detectNewTaskUseCase = get(),
-            generateStageArtifactUseCase = get(),
             validateConstraintsUseCase = get(),
             buildSystemPromptUseCase = get(),
             updateMetricsUseCase = get(),

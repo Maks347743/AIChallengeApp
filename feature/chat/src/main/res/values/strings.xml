@@ -23,8 +23,5 @@
     <string name="cd_scroll_to_top">Scroll to top</string>
     <string name="cd_scroll_to_bottom">Scroll to bottom</string>
     <string name="label_branch">Branch %d</string>
-    <string name="stage_planning">Планирование</string>
-    <string name="stage_execution">Выполнение</string>
-    <string name="stage_evaluation">Оценка</string>
-    <string name="stage_done">Выполнено</string>
+
 </resources>

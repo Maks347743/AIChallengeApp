@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 11,
-    "identityHash": "14611bda74f4f04d8b4ce93f813e43cc",
+    "identityHash": "f21805a56b255286e67746215d715fac",
     "entities": [
       {
         "tableName": "chat_sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `messages` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `settings_json` TEXT, `checkpoint_group_id` TEXT, `branch_index` INTEGER NOT NULL, `current_task` TEXT, `current_task_stage` TEXT, `profile_id` TEXT, `stage_artifacts_json` TEXT, `is_periodic_task` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `messages` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `settings_json` TEXT, `checkpoint_group_id` TEXT, `branch_index` INTEGER NOT NULL, `profile_id` TEXT, `is_periodic_task` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -49,23 +49,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "currentTask",
-            "columnName": "current_task",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "currentTaskStage",
-            "columnName": "current_task_stage",
-            "affinity": "TEXT"
-          },
-          {
             "fieldPath": "profileId",
             "columnName": "profile_id",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "stageArtifactsJson",
-            "columnName": "stage_artifacts_json",
             "affinity": "TEXT"
           },
           {
@@ -307,7 +292,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '14611bda74f4f04d8b4ce93f813e43cc')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f21805a56b255286e67746215d715fac')"
     ]
   }
 }

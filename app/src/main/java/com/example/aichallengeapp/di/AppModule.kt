@@ -5,6 +5,7 @@ import com.example.aichallengeapp.data.ApiKeyStorage
 import com.example.aichallengeapp.feature.chat.data.tools.CreatePeriodicTaskTool
 import com.example.aichallengeapp.feature.chat.data.tools.ListPeriodicTasksTool
 import com.example.aichallengeapp.feature.chat.data.tools.LocalToolRegistry
+import com.example.aichallengeapp.feature.chat.data.tools.RunPipelineTool
 import com.example.aichallengeapp.feature.chat.data.tools.StopPeriodicTaskTool
 import com.example.aichallengeapp.service.PeriodicTaskExecutor
 import com.example.aichallengeapp.service.PeriodicTaskServiceControllerImpl
@@ -50,7 +51,12 @@ val appModule = module {
             listOf(
                 CreatePeriodicTaskTool(get(), get()),
                 StopPeriodicTaskTool(get(), get()),
-                ListPeriodicTasksTool(get())
+                ListPeriodicTasksTool(get()),
+                RunPipelineTool(
+                    mcpToolClient = get(),
+                    chatRepository = get(),
+                    modelId = DeepSeekModel.DEEPSEEK_CHAT.id
+                )
             )
         )
     }

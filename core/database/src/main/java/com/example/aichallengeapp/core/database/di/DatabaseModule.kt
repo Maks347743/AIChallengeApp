@@ -38,7 +38,7 @@ val databaseModule = module {
     single { get<AppDatabase>().chatMetricsDao() }
     single { get<AppDatabase>().userProfileDao() }
     single { get<AppDatabase>().periodicTaskDao() }
-    single<ChatSessionRepository> { ChatSessionRepositoryImpl(get(), get(named("appJson"))) }
+    single<ChatSessionRepository> { ChatSessionRepositoryImpl(get()) }
     single<ChatMetricsRepository> { ChatMetricsRepositoryImpl(get()) }
     single<UserProfileRepository> { UserProfileRepositoryImpl(get(), get(named("appJson"))) }
     single<PeriodicTaskRepository> { PeriodicTaskRepositoryImpl(get()) }
