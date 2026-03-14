@@ -2,7 +2,7 @@ package com.example.aichallengeapp.feature.chat.domain.usecase
 
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
 import com.example.aichallengeapp.core.database.domain.model.ToolCallInfo
-import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClient
+import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClientManager
 import com.example.aichallengeapp.feature.chat.data.tools.LocalToolRegistry
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -14,7 +14,7 @@ data class ToolExecutionResult(
 )
 
 class ExecuteToolCallsUseCase(
-    private val mcpToolClient: McpToolClient,
+    private val mcpToolClientManager: McpToolClientManager,
     private val localToolRegistry: LocalToolRegistry,
     private val json: Json
 ) {
@@ -34,13 +34,17 @@ class ExecuteToolCallsUseCase(
             }
 
             val isLocal = localToolRegistry.isLocalTool(toolCall.functionName)
-            Timber.tag(TAG).d("▶ ${toolCall.functionName} [${if (isLocal) "local" else "mcp"}] | args=${toolCall.arguments.take(200)}")
+            val serverLabel = if (isLocal) "local" else {
+                val serverName = mcpToolClientManager.getServerName(toolCall.functionName)
+                "mcp:${serverName ?: "unknown"}"
+            }
+            Timber.tag(TAG).d("▶ ${toolCall.functionName} [$serverLabel] | args=${toolCall.arguments.take(200)}")
 
             val resultText = try {
                 if (isLocal) {
                     localToolRegistry.execute(toolCall.functionName, arguments, chatId)
                 } else {
-                    val result = mcpToolClient.callTool(toolCall.functionName, arguments)
+                    val result = mcpToolClientManager.callTool(toolCall.functionName, arguments)
                     result.content.mapNotNull { it.text }.joinToString("\n")
                 }
             } catch (e: Exception) {

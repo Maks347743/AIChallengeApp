@@ -1,10 +1,10 @@
-package com.example.mcpserver.tools
+package com.example.githubmcpserver.tools
 
 import com.example.aichallengeapp.core.mcp.model.McpCallToolResult
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
-interface McpToolHandler {
+interface GitHubMcpToolHandler {
     val name: String
     val description: String
     val inputSchema: JsonElement

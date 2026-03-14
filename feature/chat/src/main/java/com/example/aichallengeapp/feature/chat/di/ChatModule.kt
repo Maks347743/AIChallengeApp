@@ -1,7 +1,9 @@
 package com.example.aichallengeapp.feature.chat.di
 
 import com.example.aichallengeapp.core.database.domain.repository.ChatRepository
+import com.example.aichallengeapp.feature.chat.data.mcp.McpServerConfig
 import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClient
+import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClientManager
 import com.example.aichallengeapp.feature.chat.data.repository.ChatRepositoryImpl
 import com.example.aichallengeapp.feature.chat.domain.ChatSessionManager
 import com.example.aichallengeapp.feature.chat.domain.usecase.BuildSystemPromptUseCase
@@ -67,11 +69,28 @@ val chatModule = module {
         )
     }
 
-    single {
+    single(named("githubMcpClient")) {
         McpToolClient(
             httpClient = get(named("mcpClient")),
             mcpBaseUrl = get(named("mcpBaseUrl")),
             json = get(named("appJson"))
+        )
+    }
+
+    single(named("deepwikiMcpClient")) {
+        McpToolClient(
+            httpClient = get(named("mcpClient")),
+            mcpBaseUrl = get(named("deepwikiMcpUrl")),
+            json = get(named("appJson"))
+        )
+    }
+
+    single {
+        McpToolClientManager(
+            listOf(
+                McpServerConfig("GitHub MCP", get(named("githubMcpClient"))),
+                McpServerConfig("DeepWiki", get(named("deepwikiMcpClient")))
+            )
         )
     }
 
@@ -81,7 +100,7 @@ val chatModule = module {
     factory { UpdateMetricsUseCase(get()) }
     factory {
         ExecuteToolCallsUseCase(
-            mcpToolClient = get(),
+            mcpToolClientManager = get(),
             localToolRegistry = get(),
             json = get(named("appJson"))
         )

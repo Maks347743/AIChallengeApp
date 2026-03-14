@@ -1,9 +1,9 @@
-package com.example.mcpserver.tools
+package com.example.githubmcpserver.tools
 
 import com.example.aichallengeapp.core.mcp.model.McpCallToolResult
 import com.example.aichallengeapp.core.mcp.model.McpContent
-import com.example.mcpserver.github.GitHubApiClient
-import com.example.mcpserver.github.GitHubAuthException
+import com.example.githubmcpserver.github.GitHubApiClient
+import com.example.githubmcpserver.github.GitHubAuthException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -19,7 +19,7 @@ import java.time.format.DateTimeFormatter
 class GitHubTrendingTool(
     private val gitHubClient: GitHubApiClient,
     private val json: Json
-) : McpToolHandler {
+) : GitHubMcpToolHandler {
 
     override val name = "github_trending"
 

@@ -1,7 +1,7 @@
-package com.example.mcpserver.routes
+package com.example.githubmcpserver.routes
 
 import com.example.aichallengeapp.core.mcp.model.JsonRpcRequest
-import com.example.mcpserver.mcp.McpRequestHandler
+import com.example.githubmcpserver.mcp.GitHubMcpRequestHandler
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -9,7 +9,7 @@ import io.ktor.server.routing.Routing
 import io.ktor.server.routing.post
 import java.util.UUID
 
-fun Routing.mcpRoutes(handler: McpRequestHandler) {
+fun Routing.gitHubMcpRoutes(handler: GitHubMcpRequestHandler) {
     post("/mcp") {
         val request = call.receive<JsonRpcRequest>()
 

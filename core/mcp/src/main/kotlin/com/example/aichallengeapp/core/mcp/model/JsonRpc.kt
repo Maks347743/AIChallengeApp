@@ -15,7 +15,7 @@ data class JsonRpcRequest(
 @Serializable
 data class JsonRpcResponse(
     val jsonrpc: String = "2.0",
-    val id: Int? = null,
+    val id: JsonElement? = null,
     val result: JsonElement? = null,
     val error: JsonRpcError? = null
 )

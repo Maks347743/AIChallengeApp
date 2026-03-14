@@ -5,7 +5,7 @@ plugins {
 }
 
 application {
-    mainClass.set("com.example.mcpserver.MainKt")
+    mainClass.set("com.example.githubmcpserver.MainKt")
 }
 
 kotlin {

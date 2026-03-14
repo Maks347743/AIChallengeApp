@@ -4,7 +4,7 @@ import com.example.aichallengeapp.core.database.domain.model.ChatMessage
 import com.example.aichallengeapp.core.database.domain.repository.ChatRepository
 import com.example.aichallengeapp.core.mcp.model.FunctionDefinition
 import com.example.aichallengeapp.core.mcp.model.ToolDefinition
-import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClient
+import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClientManager
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -20,7 +20,7 @@ import kotlinx.serialization.json.putJsonObject
 import timber.log.Timber
 
 class RunPipelineTool(
-    private val mcpToolClient: McpToolClient,
+    private val mcpToolClientManager: McpToolClientManager,
     private val chatRepository: ChatRepository,
     private val modelId: String
 ) : LocalToolHandler {
@@ -123,10 +123,11 @@ class RunPipelineTool(
                         continue
                     }
 
-                    Timber.tag(TAG).i("$STEP_PREFIX [$stepNum/$total] TOOL_CALL '$toolName' | args=$resolvedArgs")
+                    val serverName = mcpToolClientManager.getServerName(toolName) ?: "unknown"
+                    Timber.tag(TAG).i("$STEP_PREFIX [$stepNum/$total] TOOL_CALL '$toolName' [$serverName] | args=$resolvedArgs")
 
                     try {
-                        val result = mcpToolClient.callTool(toolName, resolvedArgs)
+                        val result = mcpToolClientManager.callTool(toolName, resolvedArgs)
                         val resultText = result.content.mapNotNull { it.text }.joinToString("\n")
                         val preview = resultText.take(200).replace("\n", " ")
 

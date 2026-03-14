@@ -114,10 +114,10 @@ class ChatViewModel(
 
     private suspend fun loadToolDefinitions() {
         try {
-            cachedToolDefinitions = getToolDefinitionsUseCase()
-            val count = cachedToolDefinitions?.size ?: 0
-            Timber.tag("ChatViewModel").d("Loaded $count tool definitions")
-            _state.update { it.copy(mcpToolsCount = count) }
+            val result = getToolDefinitionsUseCase()
+            cachedToolDefinitions = result.all
+            Timber.tag("ChatViewModel").d("Loaded ${result.all.size} tool definitions (${result.mcpCount} MCP)")
+            _state.update { it.copy(mcpToolsCount = result.mcpCount) }
         } catch (e: Exception) {
             Timber.tag("ChatViewModel").w(e, "MCP server unavailable, continuing without tools")
             _state.update { it.copy(mcpToolsCount = 0) }

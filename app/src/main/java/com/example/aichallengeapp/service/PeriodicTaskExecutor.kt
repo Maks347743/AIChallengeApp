@@ -6,14 +6,14 @@ import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskMes
 import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskResult
 import com.example.aichallengeapp.core.database.domain.repository.ChatRepository
 import com.example.aichallengeapp.core.periodictask.domain.repository.PeriodicTaskRepository
-import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClient
+import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClientManager
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import timber.log.Timber
 import java.util.UUID
 
 class PeriodicTaskExecutor(
-    private val mcpToolClient: McpToolClient,
+    private val mcpToolClientManager: McpToolClientManager,
     private val periodicTaskRepository: PeriodicTaskRepository,
     private val chatRepository: ChatRepository,
     private val json: Json,
@@ -28,7 +28,7 @@ class PeriodicTaskExecutor(
                 null
             }
 
-            val toolResult = mcpToolClient.callTool(task.toolName, arguments)
+            val toolResult = mcpToolClientManager.callTool(task.toolName, arguments)
             val resultText = toolResult.content.mapNotNull { it.text }.joinToString("\n")
 
             val summary = summarize(task, resultText)

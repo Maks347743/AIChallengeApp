@@ -32,13 +32,14 @@ val appModule = module {
     }
 
     single(named("mcpBaseUrl")) { BuildConfig.MCP_SERVER_URL }
+    single(named("deepwikiMcpUrl")) { BuildConfig.DEEPWIKI_MCP_URL }
 
     single<PeriodicTaskServiceController> { PeriodicTaskServiceControllerImpl(get()) }
     single { PeriodicTaskManager(get(), get()) }
 
     single {
         PeriodicTaskExecutor(
-            mcpToolClient = get(),
+            mcpToolClientManager = get(),
             periodicTaskRepository = get(),
             chatRepository = get(),
             json = get(named("appJson")),
@@ -53,7 +54,7 @@ val appModule = module {
                 StopPeriodicTaskTool(get(), get()),
                 ListPeriodicTasksTool(get()),
                 RunPipelineTool(
-                    mcpToolClient = get(),
+                    mcpToolClientManager = get(),
                     chatRepository = get(),
                     modelId = DeepSeekModel.DEEPSEEK_CHAT.id
                 )

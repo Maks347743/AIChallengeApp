@@ -1,4 +1,4 @@
-package com.example.mcpserver.tools
+package com.example.githubmcpserver.tools
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

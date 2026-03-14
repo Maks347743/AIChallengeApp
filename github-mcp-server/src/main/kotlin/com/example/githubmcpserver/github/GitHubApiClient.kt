@@ -1,4 +1,4 @@
-package com.example.mcpserver.github
+package com.example.githubmcpserver.github
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -26,7 +26,7 @@ class GitHubApiClient(private val token: String?) {
 
         val response = client.get("https://api.github.com$basePath") {
             header("Accept", "application/vnd.github.v3+json")
-            header("User-Agent", "AIChallengeApp-MCP-Server")
+            header("User-Agent", "AIChallengeApp-GitHub-MCP-Server")
             if (!token.isNullOrBlank()) {
                 header("Authorization", "Bearer $token")
             }

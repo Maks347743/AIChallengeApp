@@ -1,12 +1,12 @@
-package com.example.mcpserver
+package com.example.githubmcpserver
 
-import com.example.mcpserver.github.GitHubApiClient
-import com.example.mcpserver.mcp.McpRequestHandler
-import com.example.mcpserver.mcp.ToolRegistry
-import com.example.mcpserver.routes.mcpRoutes
-import com.example.mcpserver.tools.GitHubGetUserTool
-import com.example.mcpserver.tools.GitHubSearchReposTool
-import com.example.mcpserver.tools.GitHubTrendingTool
+import com.example.githubmcpserver.github.GitHubApiClient
+import com.example.githubmcpserver.mcp.GitHubMcpRequestHandler
+import com.example.githubmcpserver.mcp.GitHubToolRegistry
+import com.example.githubmcpserver.routes.gitHubMcpRoutes
+import com.example.githubmcpserver.tools.GitHubGetUserTool
+import com.example.githubmcpserver.tools.GitHubSearchReposTool
+import com.example.githubmcpserver.tools.GitHubTrendingTool
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -25,7 +25,7 @@ fun main() {
         isLenient = true
     }
 
-    val registry = ToolRegistry(
+    val registry = GitHubToolRegistry(
         listOf(
             GitHubSearchReposTool(gitHubClient, json),
             GitHubGetUserTool(gitHubClient, json),
@@ -33,14 +33,14 @@ fun main() {
         )
     )
 
-    val handler = McpRequestHandler(registry)
+    val handler = GitHubMcpRequestHandler(registry)
 
     embeddedServer(Netty, port = 3001) {
         install(ContentNegotiation) {
             json(json)
         }
         routing {
-            mcpRoutes(handler)
+            gitHubMcpRoutes(handler)
         }
     }.start(wait = true)
 }

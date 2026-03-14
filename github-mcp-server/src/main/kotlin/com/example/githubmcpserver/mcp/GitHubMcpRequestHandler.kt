@@ -1,4 +1,4 @@
-package com.example.mcpserver.mcp
+package com.example.githubmcpserver.mcp
 
 import com.example.aichallengeapp.core.mcp.McpConstants
 import com.example.aichallengeapp.core.mcp.model.JsonRpcError
@@ -10,9 +10,10 @@ import com.example.aichallengeapp.core.mcp.model.McpServerInfo
 import com.example.aichallengeapp.core.mcp.model.McpToolsListResult
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.encodeToJsonElement
 
-class McpRequestHandler(private val registry: ToolRegistry) {
+class GitHubMcpRequestHandler(private val registry: GitHubToolRegistry) {
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -25,7 +26,7 @@ class McpRequestHandler(private val registry: ToolRegistry) {
             "tools/list" -> handleToolsList(request)
             "tools/call" -> handleToolsCall(request)
             else -> JsonRpcResponse(
-                id = request.id,
+                id = request.id?.let { JsonPrimitive(it) },
                 error = JsonRpcError(
                     code = -32601,
                     message = "Method not found: ${request.method}"
@@ -44,7 +45,7 @@ class McpRequestHandler(private val registry: ToolRegistry) {
             )
         )
         return JsonRpcResponse(
-            id = request.id,
+            id = request.id?.let { JsonPrimitive(it) },
             result = json.encodeToJsonElement(result)
         )
     }
@@ -52,7 +53,7 @@ class McpRequestHandler(private val registry: ToolRegistry) {
     private fun handleToolsList(request: JsonRpcRequest): JsonRpcResponse {
         val result = McpToolsListResult(tools = registry.listTools())
         return JsonRpcResponse(
-            id = request.id,
+            id = request.id?.let { JsonPrimitive(it) },
             result = json.encodeToJsonElement(result)
         )
     }
@@ -61,19 +62,19 @@ class McpRequestHandler(private val registry: ToolRegistry) {
         val params = request.params?.let {
             json.decodeFromJsonElement(McpCallToolParams.serializer(), it)
         } ?: return JsonRpcResponse(
-            id = request.id,
+            id = request.id?.let { JsonPrimitive(it) },
             error = JsonRpcError(code = -32602, message = "Missing params for tools/call")
         )
 
         return try {
             val result = registry.callTool(params.name, params.arguments)
             JsonRpcResponse(
-                id = request.id,
+                id = request.id?.let { JsonPrimitive(it) },
                 result = json.encodeToJsonElement(result)
             )
         } catch (e: Exception) {
             JsonRpcResponse(
-                id = request.id,
+                id = request.id?.let { JsonPrimitive(it) },
                 error = JsonRpcError(code = -32000, message = e.message ?: "Tool execution failed")
             )
         }

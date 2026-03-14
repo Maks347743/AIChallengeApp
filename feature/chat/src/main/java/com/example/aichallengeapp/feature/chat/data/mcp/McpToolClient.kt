@@ -14,7 +14,10 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
@@ -74,10 +77,11 @@ class McpToolClient(
             )
             val response = httpClient.post(mcpBaseUrl) {
                 contentType(ContentType.Application.Json)
+                headers.append(HttpHeaders.Accept, "application/json, text/event-stream")
                 sessionId?.let { headers.append("Mcp-Session-Id", it) }
                 setBody(request)
             }
-            val rpcResponse: JsonRpcResponse = response.body()
+            val rpcResponse = parseResponse(response)
             rpcResponse.error?.let { err ->
                 return McpCallToolResult(
                     content = listOf(McpContent(text = "MCP error: ${err.message}")),
@@ -119,6 +123,7 @@ class McpToolClient(
         )
         val initResponse = httpClient.post(mcpBaseUrl) {
             contentType(ContentType.Application.Json)
+            headers.append(HttpHeaders.Accept, "application/json, text/event-stream")
             setBody(initRequest)
         }
         if (initResponse.status.isSuccess()) {
@@ -128,6 +133,7 @@ class McpToolClient(
             // Send initialized notification
             httpClient.post(mcpBaseUrl) {
                 contentType(ContentType.Application.Json)
+                headers.append(HttpHeaders.Accept, "application/json, text/event-stream")
                 sessionId?.let { headers.append("Mcp-Session-Id", it) }
                 setBody(JsonRpcRequest(method = "notifications/initialized"))
             }
@@ -141,13 +147,40 @@ class McpToolClient(
         )
         val response = httpClient.post(mcpBaseUrl) {
             contentType(ContentType.Application.Json)
+            headers.append(HttpHeaders.Accept, "application/json, text/event-stream")
             sessionId?.let { headers.append("Mcp-Session-Id", it) }
             setBody(request)
         }
-        val rpcResponse: JsonRpcResponse = response.body()
+        val rpcResponse = parseResponse(response)
         val resultElement = rpcResponse.result ?: return emptyList()
         val toolsResult = json.decodeFromJsonElement(McpToolsListResult.serializer(), resultElement)
         return toolsResult.tools
+    }
+
+    private suspend fun parseResponse(response: HttpResponse): JsonRpcResponse {
+        val contentType = response.contentType()
+        return if (contentType?.match(ContentType.Text.EventStream) == true) {
+            parseSseResponse(response)
+        } else {
+            response.body()
+        }
+    }
+
+    private suspend fun parseSseResponse(response: HttpResponse): JsonRpcResponse {
+        val rawText = response.bodyAsText()
+        val dataLines = rawText.lineSequence()
+            .filter { it.startsWith("data:") }
+            .map { it.removePrefix("data:").trim() }
+            .filter { it.isNotEmpty() }
+            .toList()
+
+        if (dataLines.isEmpty()) {
+            error("SSE response contained no data lines")
+        }
+
+        // Take the last data line (final message in SSE stream)
+        val jsonText = dataLines.last()
+        return json.decodeFromString(JsonRpcResponse.serializer(), jsonText)
     }
 
     companion object {
