@@ -50,7 +50,7 @@ fun main() = application {
 
     val documentStorage = DocumentStorage(docsPath)
     val chunkStorage = ChunkStorage(chunksPath, json)
-    val vectorIndex = VectorIndex(dimensions = 768)
+    val vectorIndex = VectorIndex()
     val embeddingService = OllamaEmbeddingService()
     val indexingService = IndexingService(
         documentStorage = documentStorage,
