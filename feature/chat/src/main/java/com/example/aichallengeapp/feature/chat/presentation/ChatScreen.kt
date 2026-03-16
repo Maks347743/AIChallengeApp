@@ -81,6 +81,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
 import com.example.aichallengeapp.core.database.domain.model.ChatMetrics
+import com.example.aichallengeapp.core.database.domain.model.ToolCallInfo
+import kotlinx.serialization.json.Json
 
 import com.example.aichallengeapp.feature.chat.R
 import com.example.aichallengeapp.feature.chat.ui.theme.SendBlue
@@ -276,11 +278,7 @@ fun ChatScreen(
                 scrollJobs.bottomHide?.cancel()
             }
 
-            val visibleMessages = remember(state.messages) {
-                state.messages.filter { msg ->
-                    msg.role != ChatMessage.ROLE_TOOL_CALL && msg.role != ChatMessage.ROLE_TOOL_RESULT
-                }
-            }
+            val visibleMessages = remember(state.messages) { state.messages }
 
             LaunchedEffect(visibleMessages.size, state.isLoading) {
                 if (visibleMessages.isNotEmpty()) {
@@ -612,6 +610,8 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
             content = message.content,
             modifier = modifier
         )
+        ChatMessage.ROLE_TOOL_CALL -> ToolCallBubble(message.content, modifier)
+        ChatMessage.ROLE_TOOL_RESULT -> ToolResultBubble(message.content, modifier)
         ChatMessage.ROLE_USER -> {
             val cornerLarge = dimensionResource(R.dimen.chat_bubble_corner_large)
             val cornerSmall = dimensionResource(R.dimen.chat_bubble_corner_small)
@@ -660,6 +660,86 @@ private fun ChatBubble(message: ChatMessage, modifier: Modifier = Modifier) {
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolCallBubble(content: String, modifier: Modifier = Modifier) {
+    val toolCalls = remember(content) {
+        runCatching {
+            Json.decodeFromString<List<ToolCallInfo>>(content)
+        }.getOrDefault(emptyList())
+    }
+    Column(modifier = modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        toolCalls.forEach { call ->
+            val args = runCatching {
+                val json = Json.parseToJsonElement(call.arguments)
+                json.toString().removePrefix("{").removeSuffix("}")
+                    .replace("\"", "").take(80)
+            }.getOrDefault(call.arguments.take(80))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text("⚙", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = call.functionName,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (args.isNotBlank()) {
+                    Text(
+                        text = "· $args",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolResultBubble(content: String, modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    val preview = remember(content) { content.lineSequence().first().take(60) }
+    Column(
+        modifier = modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("📄", style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = if (expanded) "Tool result" else preview,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(20.dp)) {
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (expanded) {
+            SelectionContainer {
+                Text(
+                    text = content,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
     }

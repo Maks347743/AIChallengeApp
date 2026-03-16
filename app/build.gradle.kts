@@ -26,6 +26,7 @@ android {
         buildConfigField("String", "DEEPSEEK_BASE_URL", "\"https://api.deepseek.com\"")
         buildConfigField("String", "MCP_SERVER_URL", "\"http://10.0.2.2:3001/mcp\"")
         buildConfigField("String", "DEEPWIKI_MCP_URL", "\"https://mcp.deepwiki.com/mcp\"")
+        buildConfigField("String", "RAG_MCP_URL", "\"http://10.0.2.2:3002/mcp\"")
     }
 
     buildTypes {

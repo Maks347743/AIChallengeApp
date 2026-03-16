@@ -20,6 +20,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
@@ -34,3 +35,4 @@ include(":feature:explore-github")
 include(":core:mcp")
 include(":core:periodic-task")
 include(":github-mcp-server")
+include(":rag-server")
