@@ -52,11 +52,12 @@ class ExecuteToolCallsUseCase(
                 "Tool execution failed: ${e.message}"
             }
 
-            Timber.tag(TAG).d("✔ ${toolCall.functionName} | ${resultText.length} chars | ${resultText.take(150).replace("\n", " ")}")
+            val truncatedResult = resultText.take(MAX_TOOL_RESULT_CHARS)
+            Timber.tag(TAG).d("✔ ${toolCall.functionName} | ${resultText.length} chars (truncated to ${truncatedResult.length}) | ${truncatedResult.take(150).replace("\n", " ")}")
 
             ChatMessage(
                 role = ChatMessage.ROLE_TOOL_RESULT,
-                content = resultText,
+                content = truncatedResult,
                 id = toolCall.id
             )
         }
@@ -66,5 +67,6 @@ class ExecuteToolCallsUseCase(
 
     companion object {
         private const val TAG = "ToolExecution"
+        private const val MAX_TOOL_RESULT_CHARS = 2000
     }
 }

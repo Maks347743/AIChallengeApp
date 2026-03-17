@@ -34,7 +34,7 @@ class RetrieveTool(
             }
             putJsonObject("maxResults") {
                 put("type", "integer")
-                put("description", "Maximum results to return (default 5)")
+                put("description", "Maximum results to return (default 3, max 3)")
             }
         }
         putJsonArray("required") { add(JsonPrimitive("query")) }
@@ -46,7 +46,7 @@ class RetrieveTool(
                 content = listOf(McpContent(text = "Missing required parameter: query")),
                 isError = true
             )
-        val maxResults = arguments["maxResults"]?.jsonPrimitive?.int ?: 5
+        val maxResults = (arguments["maxResults"]?.jsonPrimitive?.int ?: 3).coerceAtMost(3)
 
         return try {
             val queryVec = embeddingService.embed(query)

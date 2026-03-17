@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 private const val MAX_CONSTRAINT_RETRIES = 3
-private const val MAX_TOOL_ITERATIONS = 5
+private const val MAX_TOOL_ITERATIONS = 10
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModel(
@@ -338,6 +338,18 @@ class ChatViewModel(
                 throw nextResult.exceptionOrNull() ?: Exception("Tool calling loop failed")
             }
             result = nextResult.getOrThrow()
+        }
+
+        if (result.finishReason == ChatResult.FINISH_REASON_TOOL_CALLS) {
+            Timber.tag("ChatViewModel").w("Max tool iterations reached, forcing final response without tools")
+            val finalResult = sendChatMessageUseCase(
+                buildHistory(_state.value.messages),
+                settings.maxTokens,
+                settings.temperature,
+                settings.model.id,
+                tools = null
+            )
+            if (finalResult.isSuccess) result = finalResult.getOrThrow()
         }
 
         return result
