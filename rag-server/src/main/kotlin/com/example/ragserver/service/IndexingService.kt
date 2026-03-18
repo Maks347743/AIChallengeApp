@@ -7,14 +7,14 @@ import com.example.ragserver.chunking.ChunkingStrategy
 import com.example.ragserver.data.ChunkStorage
 import com.example.ragserver.data.DocumentStorage
 import com.example.ragserver.data.VectorIndex
-import com.example.ragserver.embedding.OllamaEmbeddingService
+import com.example.ragserver.embedding.EmbeddingService
 import androidx.compose.runtime.mutableStateListOf
 import java.nio.file.Path
 
 class IndexingService(
     private val documentStorage: DocumentStorage,
     private val chunkStorage: ChunkStorage,
-    private val embeddingService: OllamaEmbeddingService,
+    private val embeddingService: EmbeddingService,
     private val vectorIndex: VectorIndex,
     private val indexPath: Path
 ) {

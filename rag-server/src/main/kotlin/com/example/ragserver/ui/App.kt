@@ -17,11 +17,17 @@ import com.example.ragserver.deepwiki.DeepWikiImportService
 import com.example.ragserver.service.IndexingService
 import com.example.ragserver.ui.screens.DocumentsScreen
 import com.example.ragserver.ui.screens.IndexingScreen
+import com.example.ragserver.ui.screens.SettingsScreen
 
 @Composable
-fun App(indexingService: IndexingService, documentStorage: DocumentStorage, deepWikiImportService: DeepWikiImportService) {
+fun App(
+    indexingService: IndexingService,
+    documentStorage: DocumentStorage,
+    deepWikiImportService: DeepWikiImportService,
+    settings: SettingsState
+) {
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Documents", "Indexing")
+    val tabs = listOf("Documents", "Indexing", "Settings")
 
     MaterialTheme {
         Column(Modifier.fillMaxSize()) {
@@ -38,6 +44,7 @@ fun App(indexingService: IndexingService, documentStorage: DocumentStorage, deep
             when (selectedTab) {
                 0 -> DocumentsScreen(documentStorage, deepWikiImportService)
                 1 -> IndexingScreen(indexingService)
+                2 -> SettingsScreen(settings) { settings.save() }
             }
         }
     }

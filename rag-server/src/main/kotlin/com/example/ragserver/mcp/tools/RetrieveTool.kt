@@ -2,23 +2,23 @@ package com.example.ragserver.mcp.tools
 
 import com.example.aichallengeapp.core.mcp.model.McpCallToolResult
 import com.example.aichallengeapp.core.mcp.model.McpContent
-import com.example.ragserver.data.ChunkStorage
-import com.example.ragserver.data.VectorIndex
-import com.example.ragserver.embedding.OllamaEmbeddingService
+import com.example.ragserver.config.RagConfig
+import com.example.ragserver.data.Chunk
+import com.example.ragserver.mcp.RetrievalPipeline
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
-import kotlinx.serialization.json.JsonPrimitive
 
 class RetrieveTool(
-    private val embeddingService: OllamaEmbeddingService,
-    private val vectorIndex: VectorIndex,
-    private val chunkStorage: ChunkStorage
+    private val pipeline: RetrievalPipeline,
+    private val configProvider: () -> RagConfig
 ) {
     val name = "retrieve"
 
@@ -34,7 +34,7 @@ class RetrieveTool(
             }
             putJsonObject("maxResults") {
                 put("type", "integer")
-                put("description", "Maximum results to return (default 3, max 3)")
+                put("description", "Maximum results (default: server topK config)")
             }
         }
         putJsonArray("required") { add(JsonPrimitive("query")) }
@@ -46,37 +46,18 @@ class RetrieveTool(
                 content = listOf(McpContent(text = "Missing required parameter: query")),
                 isError = true
             )
-        val maxResults = (arguments["maxResults"]?.jsonPrimitive?.int ?: 3).coerceAtMost(3)
+        val topK = arguments["maxResults"]?.jsonPrimitive?.int ?: configProvider().topK
 
         return try {
-            val queryVec = embeddingService.embed(query)
-                ?: return McpCallToolResult(
-                    content = listOf(McpContent(text = "Failed to embed query: Ollama returned no vector.")),
-                    isError = true
+            val chunks = pipeline.retrieve(query, topK)
+            when {
+                chunks.isEmpty() -> McpCallToolResult(
+                    content = listOf(McpContent(text = "No relevant documents found in the index. Please add documents and run vectorization first."))
                 )
-            val chunkIds = vectorIndex.search(queryVec, maxResults)
-
-            if (chunkIds.isEmpty()) {
-                return McpCallToolResult(
-                    content = listOf(
-                        McpContent(text = "No relevant documents found in the index. Please add documents and run vectorization first.")
-                    )
-                )
+                else -> McpCallToolResult(content = listOf(McpContent(text = formatChunks(chunks))))
             }
-
-            val resultText = buildString {
-                chunkIds.forEachIndexed { i, id ->
-                    val chunk = chunkStorage.load(id)
-                    if (chunk != null) {
-                        appendLine("[${i + 1}] ${chunk.metadata.title}")
-                        appendLine("Source: ${chunk.metadata.file} | Section: ${chunk.metadata.section ?: "General"} | strategy=${chunk.metadata.strategy} chunk#${chunk.metadata.chunkIndex}")
-                        appendLine(chunk.text)
-                        appendLine()
-                    }
-                }
-            }.trim()
-
-            McpCallToolResult(content = listOf(McpContent(text = resultText)))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             McpCallToolResult(
                 content = listOf(McpContent(text = "Retrieval error: ${e.message}")),
@@ -84,4 +65,13 @@ class RetrieveTool(
             )
         }
     }
+
+    private fun formatChunks(chunks: List<Chunk>): String = buildString {
+        chunks.forEachIndexed { i, chunk ->
+            appendLine("[${i + 1}] ${chunk.metadata.title}")
+            appendLine("Source: ${chunk.metadata.file} | Section: ${chunk.metadata.section ?: "General"} | strategy=${chunk.metadata.strategy} chunk#${chunk.metadata.chunkIndex}")
+            appendLine(chunk.text)
+            appendLine()
+        }
+    }.trim()
 }

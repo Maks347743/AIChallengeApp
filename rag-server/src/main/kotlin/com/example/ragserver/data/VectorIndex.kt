@@ -2,11 +2,12 @@ package com.example.ragserver.data
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.exists
 import kotlin.io.path.readText
-import kotlin.io.path.writeText
 import kotlin.math.sqrt
 
 class VectorIndex {
@@ -16,19 +17,23 @@ class VectorIndex {
         vectors[chunkId] = vector
     }
 
-    fun search(queryVector: FloatArray, k: Int = 5): List<String> {
+    fun searchWithScores(queryVector: FloatArray, k: Int = 5): List<Pair<String, Float>> {
         if (vectors.isEmpty()) return emptyList()
         return vectors.entries
             .map { (id, vec) -> id to cosineSimilarity(queryVector, vec) }
             .sortedByDescending { it.second }
             .take(k)
-            .map { it.first }
     }
+
+    fun search(queryVector: FloatArray, k: Int = 5): List<String> =
+        searchWithScores(queryVector, k).map { it.first }
 
     fun save(path: Path) {
         path.toFile().parentFile?.mkdirs()
         val data = IndexData(vectors.mapValues { it.value.toList() })
-        path.writeText(Json.encodeToString(IndexData.serializer(), data))
+        val tmp = path.resolveSibling(path.fileName.toString() + ".tmp")
+        tmp.toFile().writeText(Json.encodeToString(IndexData.serializer(), data))
+        Files.move(tmp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
     }
 
     fun load(path: Path): Boolean {
@@ -46,6 +51,7 @@ class VectorIndex {
     }
 
     private fun cosineSimilarity(a: FloatArray, b: FloatArray): Float {
+        require(a.size == b.size) { "Vector dimension mismatch: ${a.size} vs ${b.size}" }
         var dot = 0f
         var normA = 0f
         var normB = 0f

@@ -1,16 +1,13 @@
 package com.example.ragserver.embedding
 
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import com.example.ragserver.network.createHttpClient
+import com.example.ragserver.network.sharedJson
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -18,12 +15,8 @@ import kotlinx.serialization.json.jsonPrimitive
 class OllamaEmbeddingService(
     private val baseUrl: String = "http://localhost:11434",
     private val model: String = "nomic-embed-text"
-) {
-    private val json = Json { ignoreUnknownKeys = true }
-    private val client = HttpClient(CIO) {
-        install(ContentNegotiation) { json(json) }
-        engine { requestTimeout = 30_000 }
-    }
+) : EmbeddingService {
+    private val client = createHttpClient(timeoutMs = 30_000)
 
     @Serializable
     private data class EmbedRequest(val model: String, val prompt: String)
@@ -32,7 +25,7 @@ class OllamaEmbeddingService(
      * Returns null if Ollama returns an error or unexpected response.
      * Caller should skip null embeddings.
      */
-    suspend fun embed(text: String): FloatArray? {
+    override suspend fun embed(text: String): FloatArray? {
         if (text.isBlank()) return null
 
         val rawBody = try {
@@ -45,7 +38,7 @@ class OllamaEmbeddingService(
         }
 
         return try {
-            val root = json.parseToJsonElement(rawBody).jsonObject
+            val root = sharedJson.parseToJsonElement(rawBody).jsonObject
 
             // /api/embeddings → { "embedding": [...] }
             root["embedding"]?.jsonArray
