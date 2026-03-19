@@ -6,6 +6,8 @@ import com.example.ragserver.config.RagConfig
 import com.example.ragserver.data.Chunk
 import com.example.ragserver.mcp.RetrievalPipeline
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -15,6 +17,14 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+
+@Serializable
+data class ChunkMeta(
+    val id: String,
+    val source: String,
+    val section: String?,
+    val text: String
+)
 
 class RetrieveTool(
     private val pipeline: RetrievalPipeline,
@@ -52,9 +62,13 @@ class RetrieveTool(
             val chunks = pipeline.retrieve(query, topK)
             when {
                 chunks.isEmpty() -> McpCallToolResult(
-                    content = listOf(McpContent(text = "No relevant documents found in the index. Please add documents and run vectorization first."))
+                    content = listOf(McpContent(text = "No relevant documents found.")),
+                    isError = true
                 )
-                else -> McpCallToolResult(content = listOf(McpContent(text = formatChunks(chunks))))
+                else -> McpCallToolResult(content = listOf(
+                    McpContent(text = formatChunks(chunks)),
+                    McpContent(type = "metadata", text = "__RAG_META__:" + formatChunksMeta(chunks))
+                ))
             }
         } catch (e: CancellationException) {
             throw e
@@ -74,4 +88,16 @@ class RetrieveTool(
             appendLine()
         }
     }.trim()
+
+    private fun formatChunksMeta(chunks: List<Chunk>): String {
+        val metas = chunks.map { chunk ->
+            ChunkMeta(
+                id = chunk.id,
+                source = chunk.metadata.file,
+                section = chunk.metadata.section,
+                text = chunk.text.take(300)
+            )
+        }
+        return Json.encodeToString(metas)
+    }
 }

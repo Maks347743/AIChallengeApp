@@ -3,6 +3,8 @@ package com.example.aichallengeapp.feature.chat.data.mcp
 import com.example.aichallengeapp.core.mcp.model.McpCallToolResult
 import com.example.aichallengeapp.core.mcp.model.McpContent
 import com.example.aichallengeapp.core.mcp.model.ToolDefinition
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
@@ -22,17 +24,26 @@ class McpToolClientManager(private val servers: List<McpServerConfig>) {
         initMutex.withLock {
             if (toolToServer != null) return
             val mapping = mutableMapOf<String, McpServerConfig>()
-            for (server in servers) {
-                try {
-                    val tools = server.client.getToolDefinitions()
-                    val toolNames = tools.map { it.function.name }
+            coroutineScope {
+                servers.map { server ->
+                    async {
+                        try {
+                            val tools = server.client.getToolDefinitions()
+                            tools.map { it.function.name } to server
+                        } catch (e: Exception) {
+                            Timber.tag(TAG).e(e, "Failed to initialize server '${server.name}' — skipping")
+                            emptyList<String>() to server
+                        }
+                    }
+                }.forEach { deferred ->
+                    val (toolNames, server) = deferred.await()
                     for (name in toolNames) {
                         mapping[name] = server
                         Timber.tag(TAG).i("  ${server.name} → $name")
                     }
-                    Timber.tag(TAG).i("  ► ${server.name}: ${toolNames.size} tools loaded")
-                } catch (e: Exception) {
-                    Timber.tag(TAG).e(e, "Failed to initialize server '${server.name}' — skipping")
+                    if (toolNames.isNotEmpty()) {
+                        Timber.tag(TAG).i("  ► ${server.name}: ${toolNames.size} tools loaded")
+                    }
                 }
             }
             Timber.tag(TAG).i("MCP Servers initialized: ${mapping.size} tools from ${servers.size} servers")

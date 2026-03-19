@@ -13,7 +13,9 @@ import kotlinx.serialization.json.Json
 import com.example.aichallengeapp.feature.chat.domain.ChatSessionManager
 import com.example.aichallengeapp.feature.chat.domain.PromptTemplates
 import com.example.aichallengeapp.feature.chat.domain.usecase.BuildSystemPromptUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.ChunkSourceInfo
 import com.example.aichallengeapp.feature.chat.domain.usecase.ExecuteToolCallsUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.ExecuteToolCallsUseCase.Companion.CITATION_MARKER
 import com.example.aichallengeapp.feature.chat.domain.usecase.GetToolDefinitionsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateMetricsUseCase
@@ -31,6 +33,12 @@ import timber.log.Timber
 
 private const val MAX_CONSTRAINT_RETRIES = 3
 private const val MAX_TOOL_ITERATIONS = 10
+
+private data class ToolCallingLoopResult(
+    val chatResult: ChatResult,
+    val chunkSources: List<ChunkSourceInfo> = emptyList(),
+    val directMessage: String? = null
+)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModel(
@@ -277,20 +285,30 @@ class ChatViewModel(
     ) {
         result.fold(
             onSuccess = { initialResult ->
-                val finalResult = try {
+                val loopResult = try {
                     processToolCallingLoop(initialResult, settings, tools, buildHistory)
                 } catch (e: Exception) {
                     _state.update { it.copy(isLoading = false, error = e.message ?: "Tool calling failed") }
                     return
                 }
 
-                handleResponseWithConstraints(finalResult.message, constraints, settings, globalPrefix) { finalContent ->
+                if (loopResult.directMessage != null) {
+                    val finalMessages = buildFinalMessages(loopResult.directMessage, _state.value.messages)
+                    _state.update { it.copy(messages = finalMessages, isLoading = false) }
+                    persistSession(finalMessages)
+                    updateMetrics(loopResult.chatResult.metrics)
+                    return
+                }
+
+                handleResponseWithConstraints(loopResult.chatResult.message, constraints, settings, globalPrefix) { finalContent ->
+                    val (mainContent, extractedCitations) = splitCitations(finalContent)
+                    val contentWithSources = appendSourcesIfNeeded(mainContent, loopResult.chunkSources, extractedCitations)
                     val currentMessages = _state.value.messages
-                    val finalMessages = buildFinalMessages(finalContent, currentMessages)
+                    val finalMessages = buildFinalMessages(contentWithSources, currentMessages)
                     _state.update { it.copy(messages = finalMessages, isLoading = false) }
 
                     persistSession(finalMessages)
-                    updateMetrics(finalResult.metrics)
+                    updateMetrics(loopResult.chatResult.metrics)
                 }
             },
             onFailure = { throwable ->
@@ -304,9 +322,11 @@ class ChatViewModel(
         settings: ChatSettings,
         tools: List<ToolDefinition>?,
         buildHistory: (messages: List<ChatMessage>) -> List<ChatMessage>
-    ): ChatResult {
+    ): ToolCallingLoopResult {
         var result = initialResult
         var iterations = 0
+        val allChunkSources = mutableListOf<ChunkSourceInfo>()
+
         while (result.finishReason == ChatResult.FINISH_REASON_TOOL_CALLS && result.toolCalls != null && iterations < MAX_TOOL_ITERATIONS) {
             iterations++
             Timber.tag("ChatViewModel").d("Tool calling iteration $iterations, ${result.toolCalls!!.size} tools to call")
@@ -323,6 +343,14 @@ class ChatViewModel(
                 _state.update { it.copy(isPeriodicTask = true) }
             }
             _state.update { it.copy(messages = it.messages + executionResult.messages) }
+
+            if (executionResult.hadEmptyRetrieve) {
+                return ToolCallingLoopResult(
+                    chatResult = result,
+                    directMessage = "Я не знаю ответ на этот вопрос, пожалуйста уточните его или добавьте больше документов в базу знаний."
+                )
+            }
+            allChunkSources += executionResult.chunkSources
 
             val currentMessages = _state.value.messages
             val fullHistory = buildHistory(currentMessages)
@@ -352,7 +380,36 @@ class ChatViewModel(
             if (finalResult.isSuccess) result = finalResult.getOrThrow()
         }
 
-        return result
+        return ToolCallingLoopResult(chatResult = result, chunkSources = allChunkSources)
+    }
+
+    private fun splitCitations(fullResponse: String): Pair<String, String?> {
+        val idx = fullResponse.indexOf(CITATION_MARKER)
+        return if (idx >= 0) {
+            fullResponse.substring(0, idx).trim() to fullResponse.substring(idx + CITATION_MARKER.length).trim()
+        } else {
+            fullResponse to null
+        }
+    }
+
+    private fun appendSourcesIfNeeded(
+        content: String,
+        sources: List<ChunkSourceInfo>,
+        extractedCitations: String? = null
+    ): String {
+        if (sources.isEmpty()) return content
+        return buildString {
+            append(content)
+            append("\n\n---\n**Источники:**\n")
+            sources.forEach { s ->
+                val section = s.section ?: "General"
+                append("- `${s.source}` → $section → ${s.chunkId}\n")
+            }
+            if (extractedCitations != null) {
+                append("\n**Цитаты:**\n")
+                append(extractedCitations)
+            }
+        }
     }
 
     private suspend fun sendMessageNormal(
