@@ -241,6 +241,11 @@ fun ChatScreen(
                 )
             }
 
+            val taskMemory = state.taskMemory
+            if (!taskMemory.isNullOrBlank()) {
+                TaskMemoryPanel(memory = taskMemory)
+            }
+
             val clearAlpha = remember { Animatable(1f) }
             val clearScale = remember { Animatable(1f) }
 
@@ -547,6 +552,56 @@ private fun BranchSwitcherRow(
                 onClick = { if (branch.branchIndex != activeBranchIndex) onBranchSelected(branch.sessionId) },
                 label = { Text(stringResource(R.string.label_branch, branch.branchIndex)) }
             )
+        }
+    }
+}
+
+@Composable
+private fun TaskMemoryPanel(memory: String, modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    val preview = remember(memory) { memory.lineSequence().first().take(60) }
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "🧠",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = if (expanded) stringResource(R.string.label_task_memory) else preview,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(20.dp)) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (expanded) "Collapse" else "Expand",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+            if (expanded) {
+                Spacer(modifier = Modifier.height(4.dp))
+                SelectionContainer {
+                    Text(
+                        text = memory,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
         }
     }
 }

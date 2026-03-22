@@ -26,4 +26,5 @@ sealed interface SettingsIntent {
     data class UpdateSlidingWindowSize(val value: String) : SettingsIntent
     data class ToggleStickyFacts(val enabled: Boolean) : SettingsIntent
     data class UpdateStickyFactsRecentMessages(val value: String) : SettingsIntent
+    data class ToggleRag(val enabled: Boolean) : SettingsIntent
 }

@@ -12,4 +12,6 @@ interface ChatRepository {
         model: String,
         tools: List<ToolDefinition>? = null
     ): Result<ChatResult>
+
+    suspend fun sendRawMessage(prompt: String): String
 }

@@ -11,6 +11,7 @@ import com.example.aichallengeapp.feature.chat.domain.usecase.ExecuteToolCallsUs
 import com.example.aichallengeapp.feature.chat.domain.usecase.GetToolDefinitionsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateMetricsUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateTaskMemoryUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.ValidateConstraintsUseCase
 import com.example.aichallengeapp.feature.chat.presentation.ChatViewModel
 import io.ktor.client.HttpClient
@@ -107,6 +108,7 @@ val chatModule = module {
     factory { ValidateConstraintsUseCase() }
     factory { BuildSystemPromptUseCase() }
     factory { UpdateMetricsUseCase(get()) }
+    factory { UpdateTaskMemoryUseCase(get()) }
     factory {
         ExecuteToolCallsUseCase(
             mcpToolClientManager = get(),
@@ -126,6 +128,7 @@ val chatModule = module {
             validateConstraintsUseCase = get(),
             buildSystemPromptUseCase = get(),
             updateMetricsUseCase = get(),
+            updateTaskMemoryUseCase = get(),
             executeToolCallsUseCase = get(),
             getToolDefinitionsUseCase = get(),
             settingsRepository = get(),

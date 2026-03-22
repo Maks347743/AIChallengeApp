@@ -50,6 +50,10 @@ class ChatSessionRepositoryImpl(
         dao.updateCheckpointFields(id, groupId, branchIndex)
     }
 
+    override suspend fun updateTaskMemory(chatId: String, memory: String) {
+        dao.updateTaskMemory(chatId, memory)
+    }
+
     private fun ChatSessionEntity.toDomain() = ChatSession(
         id = id,
         messages = messages,
@@ -59,7 +63,8 @@ class ChatSessionRepositoryImpl(
         checkpointGroupId = checkpointGroupId,
         branchIndex = branchIndex,
         profileId = profileId,
-        isPeriodicTask = isPeriodicTask
+        isPeriodicTask = isPeriodicTask,
+        taskMemory = taskMemory
     )
 
     private fun ChatSession.toEntity() = ChatSessionEntity(
@@ -71,6 +76,7 @@ class ChatSessionRepositoryImpl(
         checkpointGroupId = checkpointGroupId,
         branchIndex = branchIndex,
         profileId = profileId,
-        isPeriodicTask = isPeriodicTask
+        isPeriodicTask = isPeriodicTask,
+        taskMemory = taskMemory
     )
 }

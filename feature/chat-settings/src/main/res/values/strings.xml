@@ -16,4 +16,5 @@
     <string name="label_sliding_window_size">Размер окна (кол-во сообщений)</string>
     <string name="label_sticky_facts_mode">Sticky Facts</string>
     <string name="label_sticky_facts_recent_messages">Сообщений без обработки</string>
+    <string name="label_rag_mode">RAG (поиск по базе знаний)</string>
 </resources>

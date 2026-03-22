@@ -33,4 +33,7 @@ interface ChatSessionDao {
 
     @Query("UPDATE chat_sessions SET checkpoint_group_id = :groupId, branch_index = :branchIndex WHERE id = :id")
     suspend fun updateCheckpointFields(id: String, groupId: String, branchIndex: Int): Int
+
+    @Query("UPDATE chat_sessions SET task_memory = :memory WHERE id = :id")
+    suspend fun updateTaskMemory(id: String, memory: String): Int
 }

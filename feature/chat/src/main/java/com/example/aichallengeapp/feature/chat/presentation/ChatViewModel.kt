@@ -19,6 +19,7 @@ import com.example.aichallengeapp.feature.chat.domain.usecase.ExecuteToolCallsUs
 import com.example.aichallengeapp.feature.chat.domain.usecase.GetToolDefinitionsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateMetricsUseCase
+import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateTaskMemoryUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.ValidateConstraintsUseCase
 import com.example.aichallengeapp.feature.settings.domain.model.ChatSettings
 import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
@@ -51,6 +52,7 @@ class ChatViewModel(
     private val updateMetricsUseCase: UpdateMetricsUseCase,
     private val executeToolCallsUseCase: ExecuteToolCallsUseCase,
     private val getToolDefinitionsUseCase: GetToolDefinitionsUseCase,
+    private val updateTaskMemoryUseCase: UpdateTaskMemoryUseCase,
     private val settingsRepository: ChatSettingsRepository,
     private val sessionManager: ChatSessionManager,
     private val metricsRepository: ChatMetricsRepository,
@@ -81,7 +83,8 @@ class ChatViewModel(
                         currentProfileId = target.profileId ?: initialProfileId,
                         isPeriodicTask = target.isPeriodicTask,
                         branches = result.branches,
-                        activeBranchIndex = result.activeBranchIndex
+                        activeBranchIndex = result.activeBranchIndex,
+                        taskMemory = target.taskMemory
                     )
                 }
             } else if (session != null) {
@@ -92,7 +95,8 @@ class ChatViewModel(
                         currentProfileId = session.profileId ?: initialProfileId,
                         isPeriodicTask = session.isPeriodicTask,
                         branches = result.branches,
-                        activeBranchIndex = result.activeBranchIndex
+                        activeBranchIndex = result.activeBranchIndex,
+                        taskMemory = session.taskMemory
                     )
                 }
             } else {
@@ -201,7 +205,8 @@ class ChatViewModel(
                 showMetrics = false,
                 messages = emptyList(),
                 error = null,
-                isPeriodicTask = false
+                isPeriodicTask = false,
+                taskMemory = null
             )
         }
         viewModelScope.launch {
@@ -247,6 +252,7 @@ class ChatViewModel(
 
             val constraints = profile?.constraints ?: emptyList()
             val tools = cachedToolDefinitions
+                ?.let { if (settings.ragEnabled) it else it.filter { t -> t.function.name != "retrieve" } }
 
             val doStickyFacts = settings.stickyFactsEnabled
                 && existingMessages.size > settings.stickyFactsRecentMessages
@@ -265,12 +271,15 @@ class ChatViewModel(
     private fun effectiveSystemPrompt(
         globalPrefix: String,
         chatPrompt: String,
-        constraints: List<Constraint> = emptyList()
+        constraints: List<Constraint> = emptyList(),
+        taskMemory: String? = null
     ): String {
+        Timber.tag("ChatViewModel").d("System prompt taskMemory: ${taskMemory?.take(100)}")
         return buildSystemPromptUseCase(
             globalPrefix = globalPrefix,
             chatPrompt = chatPrompt,
-            constraints = constraints
+            constraints = constraints,
+            taskMemory = taskMemory
         )
     }
 
@@ -309,6 +318,7 @@ class ChatViewModel(
 
                     persistSession(finalMessages)
                     updateMetrics(loopResult.chatResult.metrics)
+                    updateTaskMemory()
                 }
             },
             onFailure = { throwable ->
@@ -419,7 +429,7 @@ class ChatViewModel(
         tools: List<ToolDefinition>? = null
     ) {
         fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory)))
             addAll(messages)
         }
 
@@ -484,7 +494,7 @@ class ChatViewModel(
         val summaryContent = summaryResult.getOrThrow().message
 
         fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_SUMMARY })
             add(userMessage)
             val toolMessages = messages.drop(existingMessages.size + 1)
@@ -536,7 +546,7 @@ class ChatViewModel(
         val factsContent = factsResult.getOrThrow().message
 
         fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory)))
             add(ChatMessage(role = ChatMessage.ROLE_USER, content = factsContent))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_FACTS })
             add(userMessage)
@@ -576,7 +586,7 @@ class ChatViewModel(
             _state.update { it.copy(messages = it.messages + assistantMsg + violationNotice) }
 
             val retryHistory = buildList {
-                add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints)))
+                add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory)))
                 addAll(_state.value.messages)
             }
             val retryResult = sendChatMessageUseCase(retryHistory, settings.maxTokens, settings.temperature, settings.model.id)
@@ -602,6 +612,19 @@ class ChatViewModel(
     private suspend fun updateMetrics(responseMetrics: com.example.aichallengeapp.core.database.domain.model.ResponseMetrics) {
         val currentTotal = _state.value.chatMetrics?.totalTokens ?: 0
         updateMetricsUseCase(activeChatId, currentTotal, responseMetrics)
+    }
+
+    private fun updateTaskMemory() {
+        viewModelScope.launch {
+            val recent = _state.value.messages
+                .filter { it.role in listOf(ChatMessage.ROLE_USER, ChatMessage.ROLE_ASSISTANT) }
+                .takeLast(10)
+            if (recent.size < 2) return@launch
+            val updated = updateTaskMemoryUseCase(_state.value.taskMemory, recent)
+            if (updated.isBlank()) return@launch
+            _state.update { it.copy(taskMemory = updated) }
+            sessionManager.updateTaskMemory(activeChatId, updated)
+        }
     }
 
     private suspend fun persistSession(messages: List<ChatMessage>) {

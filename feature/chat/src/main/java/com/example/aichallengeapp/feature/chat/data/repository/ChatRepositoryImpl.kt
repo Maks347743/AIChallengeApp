@@ -10,6 +10,7 @@ import com.example.aichallengeapp.core.mcp.model.ToolCall
 import com.example.aichallengeapp.core.mcp.model.ToolDefinition
 import com.example.aichallengeapp.feature.chat.data.model.ChatRequest
 import com.example.aichallengeapp.feature.chat.data.model.ChatResponse
+import com.example.aichallengeapp.feature.chat.data.model.DeepSeekDefaults
 import com.example.aichallengeapp.feature.chat.data.model.MessageDto
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -85,6 +86,24 @@ class ChatRepositoryImpl(
                 finishReason = finishReason
             )
         }
+    }
+
+    override suspend fun sendRawMessage(prompt: String): String {
+        return runCatching {
+            val request = ChatRequest(
+                model = DeepSeekDefaults.MODEL_CHAT,
+                messages = listOf(MessageDto(role = ChatMessage.ROLE_USER, content = prompt)),
+                maxTokens = 500,
+                temperature = 0.3f,
+                tools = null
+            )
+            val response: ChatResponse = httpClient.post("$baseUrl$CHAT_ENDPOINT") {
+                contentType(ContentType.Application.Json)
+                bearerAuth(apiKey)
+                setBody(request)
+            }.body()
+            response.choices.firstOrNull()?.message?.content ?: ""
+        }.getOrElse { "" }
     }
 
     private fun mapToDto(msg: ChatMessage): MessageDto {

@@ -130,6 +130,11 @@ class ChatSessionManager(
         }
     }
 
+    suspend fun updateTaskMemory(chatId: String, memory: String) {
+        sessionRepository.updateTaskMemory(chatId, memory)
+        cachedSession = cachedSession?.copy(taskMemory = memory)
+    }
+
     suspend fun clearSessionData(): ClearResult {
         val groupId = currentGroupId
         if (groupId != null) {

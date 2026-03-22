@@ -15,5 +15,6 @@ data class ChatSessionEntity(
     @ColumnInfo(name = "checkpoint_group_id") val checkpointGroupId: String? = null,
     @ColumnInfo(name = "branch_index") val branchIndex: Int = 0,
     @ColumnInfo(name = "profile_id") val profileId: String? = null,
-    @ColumnInfo(name = "is_periodic_task", defaultValue = "0") val isPeriodicTask: Boolean = false
+    @ColumnInfo(name = "is_periodic_task", defaultValue = "0") val isPeriodicTask: Boolean = false,
+    @ColumnInfo(name = "task_memory") val taskMemory: String? = null
 )

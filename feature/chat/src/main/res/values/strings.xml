@@ -23,5 +23,6 @@
     <string name="cd_scroll_to_top">Scroll to top</string>
     <string name="cd_scroll_to_bottom">Scroll to bottom</string>
     <string name="label_branch">Branch %d</string>
+    <string name="label_task_memory">Память задачи</string>
 
 </resources>

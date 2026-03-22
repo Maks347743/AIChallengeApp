@@ -76,6 +76,7 @@ class SettingsViewModel(
                 intent.value.toIntOrNull()?.takeIf { it > 0 }
                     ?.let { v -> updateSettings { copy(stickyFactsRecentMessages = v) } }
             }
+            is SettingsIntent.ToggleRag -> updateSettings { copy(ragEnabled = intent.enabled) }
         }
     }
 

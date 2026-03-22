@@ -290,6 +290,28 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_card_spacing)))
 
+            // RAG section
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.label_rag_mode),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = settings.ragEnabled,
+                            onCheckedChange = { viewModel.onIntent(SettingsIntent.ToggleRag(it)) }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_card_spacing)))
+
             // Sticky Facts Mode section
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {

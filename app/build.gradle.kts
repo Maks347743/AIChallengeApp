@@ -80,7 +80,6 @@ dependencies {
     implementation(project(":feature:chat"))
     implementation(project(":feature:chat-list"))
     implementation(project(":feature:user-preferences"))
-    implementation(project(":feature:explore-github"))
 
     // AndroidX
     implementation(libs.androidx.core.ktx)

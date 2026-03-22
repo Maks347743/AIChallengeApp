@@ -28,5 +28,6 @@ data class ChatState(
     val currentProfileName: String? = null,
     val currentProfileId: String? = null,
     val isPeriodicTask: Boolean = false,
-    val mcpToolsCount: Int = 0
+    val mcpToolsCount: Int = 0,
+    val taskMemory: String? = null
 )
