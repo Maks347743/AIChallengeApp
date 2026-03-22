@@ -10,12 +10,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 private const val SESSIONS_FLOW_TIMEOUT_MS = 5000L
 
 class ChatListViewModel(
-    sessionRepository: ChatSessionRepository,
+    private val sessionRepository: ChatSessionRepository,
     userProfileRepository: UserProfileRepository
 ) : ViewModel() {
 
@@ -27,4 +28,10 @@ class ChatListViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SESSIONS_FLOW_TIMEOUT_MS), emptyList())
 
     fun newSessionId(): String = UUID.randomUUID().toString()
+
+    fun deleteSession(id: String) {
+        viewModelScope.launch {
+            sessionRepository.deleteSession(id)
+        }
+    }
 }
