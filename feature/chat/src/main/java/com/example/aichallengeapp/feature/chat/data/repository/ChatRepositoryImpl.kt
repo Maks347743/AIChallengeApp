@@ -39,9 +39,13 @@ class ChatRepositoryImpl(
         maxTokens: Int?,
         temperature: Float?,
         model: String,
-        tools: List<ToolDefinition>?
+        tools: List<ToolDefinition>?,
+        baseUrlOverride: String?,
+        apiKeyOverride: String?
     ): Result<ChatResult> {
         return runCatching {
+            val effectiveBaseUrl = baseUrlOverride ?: baseUrl
+            val effectiveApiKey = apiKeyOverride ?: apiKey
             val startTime = System.currentTimeMillis()
             val request = ChatRequest(
                 model = model,
@@ -50,9 +54,9 @@ class ChatRepositoryImpl(
                 temperature = temperature,
                 tools = tools?.ifEmpty { null }
             )
-            val response: ChatResponse = httpClient.post("$baseUrl$CHAT_ENDPOINT") {
+            val response: ChatResponse = httpClient.post("$effectiveBaseUrl$CHAT_ENDPOINT") {
                 contentType(ContentType.Application.Json)
-                bearerAuth(apiKey)
+                bearerAuth(effectiveApiKey)
                 setBody(request)
             }.body()
             val responseTimeMs = System.currentTimeMillis() - startTime

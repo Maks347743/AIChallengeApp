@@ -13,8 +13,10 @@ class SendChatMessageUseCase(
         maxTokens: Int?,
         temperature: Float?,
         model: String,
-        tools: List<ToolDefinition>? = null
+        tools: List<ToolDefinition>? = null,
+        baseUrlOverride: String? = null,
+        apiKeyOverride: String? = null
     ): Result<ChatResult> {
-        return chatRepository.sendMessage(messages, maxTokens, temperature, model, tools)
+        return chatRepository.sendMessage(messages, maxTokens, temperature, model, tools, baseUrlOverride, apiKeyOverride)
     }
 }

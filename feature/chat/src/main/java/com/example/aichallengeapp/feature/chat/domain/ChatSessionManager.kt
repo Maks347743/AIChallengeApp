@@ -67,12 +67,14 @@ class ChatSessionManager(
             cachedSession = null
             sessionRepository.deleteSession(chatId)
         } else {
+            val latestSettingsJson = sessionRepository.getSettingsJson(chatId)
             val session = (cachedSession ?: ChatSession(id = chatId)).copy(
                 id = chatId,
                 messages = messages,
                 updatedAt = System.currentTimeMillis(),
                 profileId = profileId,
-                isPeriodicTask = isPeriodicTask
+                isPeriodicTask = isPeriodicTask,
+                settingsJson = latestSettingsJson
             )
             cachedSession = session
             sessionRepository.upsertSession(session)

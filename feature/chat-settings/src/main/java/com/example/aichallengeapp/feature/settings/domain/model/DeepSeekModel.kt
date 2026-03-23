@@ -5,5 +5,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class DeepSeekModel(val id: String, val displayName: String) {
     DEEPSEEK_CHAT("deepseek-chat", "DeepSeek Chat"),
-    DEEPSEEK_REASONER("deepseek-reasoner", "DeepSeek Reasoner")
+    DEEPSEEK_REASONER("deepseek-reasoner", "DeepSeek Reasoner"),
+    OLLAMA("ollama", "Ollama (Local)")
 }

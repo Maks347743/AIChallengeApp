@@ -27,4 +27,6 @@ sealed interface SettingsIntent {
     data class ToggleStickyFacts(val enabled: Boolean) : SettingsIntent
     data class UpdateStickyFactsRecentMessages(val value: String) : SettingsIntent
     data class ToggleRag(val enabled: Boolean) : SettingsIntent
+    data class UpdateOllamaBaseUrl(val value: String) : SettingsIntent
+    data class UpdateOllamaModelName(val value: String) : SettingsIntent
 }

@@ -8,6 +8,12 @@ import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 val settingsModule = module {
-    single<ChatSettingsRepository> { ChatSettingsRepositoryImpl(get(), get(named("appJson"))) }
+    single<ChatSettingsRepository> {
+        ChatSettingsRepositoryImpl(
+            sessionRepository = get(),
+            json = get(named("appJson")),
+            defaultOllamaBaseUrl = getOrNull(named("ollamaBaseUrl")) ?: "http://10.0.2.2:11434/v1"
+        )
+    }
     viewModel { params -> SettingsViewModel(params.get(), get()) }
 }

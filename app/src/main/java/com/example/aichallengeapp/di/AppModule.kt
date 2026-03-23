@@ -24,6 +24,7 @@ val appModule = module {
     }
 
     single(named("baseUrl")) { BuildConfig.DEEPSEEK_BASE_URL }
+    single(named("ollamaBaseUrl")) { BuildConfig.OLLAMA_BASE_URL }
     single(named("isDebug")) { BuildConfig.DEBUG }
 
     single(named("githubKey")) {

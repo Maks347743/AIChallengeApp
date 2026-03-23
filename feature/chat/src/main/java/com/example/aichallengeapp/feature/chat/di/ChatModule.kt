@@ -72,7 +72,7 @@ val chatModule = module {
 
     single(named("githubMcpClient")) {
         McpToolClient(
-            httpClient = get(named("mcpClient")),
+            httpClient = get(),
             mcpBaseUrl = get(named("mcpBaseUrl")),
             json = get(named("appJson"))
         )
@@ -80,7 +80,7 @@ val chatModule = module {
 
     single(named("deepwikiMcpClient")) {
         McpToolClient(
-            httpClient = get(named("mcpClient")),
+            httpClient = get(),
             mcpBaseUrl = get(named("deepwikiMcpUrl")),
             json = get(named("appJson"))
         )
@@ -88,7 +88,7 @@ val chatModule = module {
 
     single(named("ragMcpClient")) {
         McpToolClient(
-            httpClient = get(named("mcpClient")),
+            httpClient = get(),
             mcpBaseUrl = get(named("ragMcpUrl")),
             json = get(named("appJson"))
         )

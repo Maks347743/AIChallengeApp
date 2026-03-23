@@ -119,6 +119,26 @@ fun SettingsScreen(
                             )
                         }
                     }
+                    AnimatedVisibility(visible = settings.model == DeepSeekModel.OLLAMA) {
+                        Column {
+                            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
+                            OutlinedTextField(
+                                value = settings.ollamaBaseUrl,
+                                onValueChange = { viewModel.onIntent(SettingsIntent.UpdateOllamaBaseUrl(it)) },
+                                label = { Text("Ollama Base URL") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
+                            OutlinedTextField(
+                                value = settings.ollamaModelName,
+                                onValueChange = { viewModel.onIntent(SettingsIntent.UpdateOllamaModelName(it)) },
+                                label = { Text("Model name (e.g. qwen3:30b)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                        }
+                    }
                 }
             }
 

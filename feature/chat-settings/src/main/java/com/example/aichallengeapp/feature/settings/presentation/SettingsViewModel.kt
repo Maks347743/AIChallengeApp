@@ -77,6 +77,8 @@ class SettingsViewModel(
                     ?.let { v -> updateSettings { copy(stickyFactsRecentMessages = v) } }
             }
             is SettingsIntent.ToggleRag -> updateSettings { copy(ragEnabled = intent.enabled) }
+            is SettingsIntent.UpdateOllamaBaseUrl -> updateSettings { copy(ollamaBaseUrl = intent.value) }
+            is SettingsIntent.UpdateOllamaModelName -> updateSettings { copy(ollamaModelName = intent.value) }
         }
     }
 

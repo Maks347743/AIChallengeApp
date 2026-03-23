@@ -22,6 +22,7 @@ import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateMetricsUseCa
 import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateTaskMemoryUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.ValidateConstraintsUseCase
 import com.example.aichallengeapp.feature.settings.domain.model.ChatSettings
+import com.example.aichallengeapp.feature.settings.domain.model.DeepSeekModel
 import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +35,12 @@ import timber.log.Timber
 
 private const val MAX_CONSTRAINT_RETRIES = 3
 private const val MAX_TOOL_ITERATIONS = 10
+
+private data class OllamaEndpoint(val modelId: String, val baseUrlOverride: String?, val apiKeyOverride: String?)
+
+private fun ChatSettings.resolveEndpoint(): OllamaEndpoint =
+    if (model == DeepSeekModel.OLLAMA) OllamaEndpoint(ollamaModelName, ollamaBaseUrl, "")
+    else OllamaEndpoint(model.id, null, null)
 
 private data class ToolCallingLoopResult(
     val chatResult: ChatResult,
@@ -283,6 +290,17 @@ class ChatViewModel(
         )
     }
 
+    private suspend fun sendWithSettings(
+        settings: ChatSettings,
+        messages: List<ChatMessage>,
+        maxTokens: Int? = settings.maxTokens,
+        temperature: Float? = settings.temperature,
+        tools: List<ToolDefinition>? = null
+    ): Result<ChatResult> {
+        val endpoint = settings.resolveEndpoint()
+        return sendChatMessageUseCase(messages, maxTokens, temperature, endpoint.modelId, tools, endpoint.baseUrlOverride, endpoint.apiKeyOverride)
+    }
+
     private suspend fun sendAndProcessResponse(
         result: Result<ChatResult>,
         settings: ChatSettings,
@@ -362,16 +380,7 @@ class ChatViewModel(
             }
             allChunkSources += executionResult.chunkSources
 
-            val currentMessages = _state.value.messages
-            val fullHistory = buildHistory(currentMessages)
-            val nextResult = sendChatMessageUseCase(
-                fullHistory,
-                settings.maxTokens,
-                settings.temperature,
-                settings.model.id,
-                tools
-            )
-
+            val nextResult = sendWithSettings(settings, buildHistory(_state.value.messages), tools = tools)
             if (nextResult.isFailure) {
                 throw nextResult.exceptionOrNull() ?: Exception("Tool calling loop failed")
             }
@@ -380,13 +389,7 @@ class ChatViewModel(
 
         if (result.finishReason == ChatResult.FINISH_REASON_TOOL_CALLS) {
             Timber.tag("ChatViewModel").w("Max tool iterations reached, forcing final response without tools")
-            val finalResult = sendChatMessageUseCase(
-                buildHistory(_state.value.messages),
-                settings.maxTokens,
-                settings.temperature,
-                settings.model.id,
-                tools = null
-            )
+            val finalResult = sendWithSettings(settings, buildHistory(_state.value.messages))
             if (finalResult.isSuccess) result = finalResult.getOrThrow()
         }
 
@@ -433,7 +436,7 @@ class ChatViewModel(
             addAll(messages)
         }
 
-        val result = sendChatMessageUseCase(buildHistory(_state.value.messages), settings.maxTokens, settings.temperature, settings.model.id, tools)
+        val result = sendWithSettings(settings, buildHistory(_state.value.messages), tools = tools)
 
         sendAndProcessResponse(result, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, currentMessages ->
             val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
@@ -477,12 +480,7 @@ class ChatViewModel(
                 content = "Сделай краткое summary следующей переписки. Уложись в $summaryMaxTokens токенов:\n\n$conversationText"
             )
         )
-        val summaryResult = sendChatMessageUseCase(
-            summaryHistory,
-            temperature = null,
-            maxTokens = null,
-            model = settings.model.id
-        )
+        val summaryResult = sendWithSettings(settings, summaryHistory, maxTokens = null, temperature = null)
 
         if (summaryResult.isFailure) {
             _state.update {
@@ -501,7 +499,7 @@ class ChatViewModel(
             addAll(toolMessages)
         }
 
-        val mainResult = sendChatMessageUseCase(buildHistory(_state.value.messages), settings.maxTokens, settings.temperature, settings.model.id, tools)
+        val mainResult = sendWithSettings(settings, buildHistory(_state.value.messages), tools = tools)
 
         sendAndProcessResponse(mainResult, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, _ ->
             val summaryMessage = ChatMessage(role = ChatMessage.ROLE_SUMMARY, content = summaryContent)
@@ -536,7 +534,7 @@ class ChatViewModel(
             ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = PromptTemplates.FACTS_EXTRACTOR_SYSTEM_PROMPT),
             ChatMessage(role = ChatMessage.ROLE_USER, content = "Сделай краткую выдержку важных данных следующей переписки в формате факт:значение. Анализируй текст, который идет после слова Контент. Каждый новый факт переноси на новую строку, чтобы выглядело аккуратно. Контент:\n\n$conversationText")
         )
-        val factsResult = sendChatMessageUseCase(factsHistory, maxTokens = null, temperature = null, model = settings.model.id)
+        val factsResult = sendWithSettings(settings, factsHistory, maxTokens = null, temperature = null)
 
         if (factsResult.isFailure) {
             _state.update { it.copy(isLoading = false, error = factsResult.exceptionOrNull()?.message ?: "Facts extraction failed") }
@@ -554,7 +552,7 @@ class ChatViewModel(
             addAll(toolMessages)
         }
 
-        val mainResult = sendChatMessageUseCase(buildHistory(_state.value.messages), settings.maxTokens, settings.temperature, settings.model.id, tools)
+        val mainResult = sendWithSettings(settings, buildHistory(_state.value.messages), tools = tools)
 
         sendAndProcessResponse(mainResult, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, _ ->
             val factsMessage = ChatMessage(role = ChatMessage.ROLE_FACTS, content = factsContent)
@@ -589,7 +587,7 @@ class ChatViewModel(
                 add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory)))
                 addAll(_state.value.messages)
             }
-            val retryResult = sendChatMessageUseCase(retryHistory, settings.maxTokens, settings.temperature, settings.model.id)
+            val retryResult = sendWithSettings(settings, retryHistory)
             if (retryResult.isFailure) {
                 _state.update { it.copy(isLoading = false, error = retryResult.exceptionOrNull()?.message ?: "Retry failed") }
                 return
