@@ -24,5 +24,5 @@ data class ChatSettings(
     val stickyFactsRecentMessages: Int = DEFAULT_STICKY_FACTS_RECENT_MESSAGES,
     val ragEnabled: Boolean = true,
     val ollamaBaseUrl: String = "http://10.0.2.2:11434/v1",
-    val ollamaModelName: String = "qwen3:14b",
+    val ollamaModelName: String = "qwen3:8b",
 )

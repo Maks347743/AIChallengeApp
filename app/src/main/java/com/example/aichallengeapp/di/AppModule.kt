@@ -11,7 +11,6 @@ import com.example.aichallengeapp.service.PeriodicTaskExecutor
 import com.example.aichallengeapp.service.PeriodicTaskServiceControllerImpl
 import com.example.aichallengeapp.core.periodictask.domain.PeriodicTaskManager
 import com.example.aichallengeapp.core.periodictask.domain.PeriodicTaskServiceController
-import com.example.aichallengeapp.feature.settings.domain.model.DeepSeekModel
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -45,7 +44,7 @@ val appModule = module {
             periodicTaskRepository = get(),
             chatRepository = get(),
             json = get(named("appJson")),
-            summarizationModel = DeepSeekModel.DEEPSEEK_CHAT.id
+            settingsRepository = get()
         )
     }
 
@@ -58,7 +57,7 @@ val appModule = module {
                 RunPipelineTool(
                     mcpToolClientManager = get(),
                     chatRepository = get(),
-                    modelId = DeepSeekModel.DEEPSEEK_CHAT.id
+                    settingsRepository = get()
                 )
             )
         )

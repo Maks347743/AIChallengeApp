@@ -22,7 +22,7 @@ import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateMetricsUseCa
 import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateTaskMemoryUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.ValidateConstraintsUseCase
 import com.example.aichallengeapp.feature.settings.domain.model.ChatSettings
-import com.example.aichallengeapp.feature.settings.domain.model.DeepSeekModel
+import com.example.aichallengeapp.feature.settings.domain.model.resolveEndpoint
 import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,12 +35,6 @@ import timber.log.Timber
 
 private const val MAX_CONSTRAINT_RETRIES = 3
 private const val MAX_TOOL_ITERATIONS = 10
-
-private data class OllamaEndpoint(val modelId: String, val baseUrlOverride: String?, val apiKeyOverride: String?)
-
-private fun ChatSettings.resolveEndpoint(): OllamaEndpoint =
-    if (model == DeepSeekModel.OLLAMA) OllamaEndpoint(ollamaModelName, ollamaBaseUrl, "")
-    else OllamaEndpoint(model.id, null, null)
 
 private data class ToolCallingLoopResult(
     val chatResult: ChatResult,

@@ -5,6 +5,9 @@ import com.example.aichallengeapp.core.database.domain.repository.ChatRepository
 import com.example.aichallengeapp.core.mcp.model.FunctionDefinition
 import com.example.aichallengeapp.core.mcp.model.ToolDefinition
 import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClientManager
+import com.example.aichallengeapp.feature.settings.domain.model.ModelEndpoint
+import com.example.aichallengeapp.feature.settings.domain.model.resolveEndpoint
+import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -22,7 +25,7 @@ import timber.log.Timber
 class RunPipelineTool(
     private val mcpToolClientManager: McpToolClientManager,
     private val chatRepository: ChatRepository,
-    private val modelId: String
+    private val settingsRepository: ChatSettingsRepository
 ) : LocalToolHandler {
 
     override val definition = ToolDefinition(
@@ -65,6 +68,7 @@ class RunPipelineTool(
 
     override suspend fun execute(arguments: JsonObject?, chatId: String): String {
         if (arguments == null) return "Missing arguments for run_pipeline"
+        val endpoint = settingsRepository.load(chatId).resolveEndpoint()
 
         val stepsElement = arguments["steps"] ?: return "Missing required parameter: steps"
         val steps: JsonArray = try {
@@ -158,7 +162,7 @@ class RunPipelineTool(
                     Timber.tag(TAG).i("$STEP_PREFIX [$stepNum/$total] EXTRACT | var='$outputVar' | prompt='$prompt'")
 
                     val extractedValue = try {
-                        extractData(lastResult, prompt)
+                        extractData(lastResult, prompt, endpoint)
                     } catch (e: Exception) {
                         Timber.tag(TAG).e("$STEP_PREFIX [$stepNum/$total] EXTRACT FAILED | ${e.message}")
                         ""
@@ -179,14 +183,14 @@ class RunPipelineTool(
 
         Timber.tag(TAG).i(SEPARATOR)
         Timber.tag(TAG).i("SUMMARIZE | ${allResults.size} results | prompt='${summaryPrompt.take(80)}'")
-        val summary = summarize(allResults, summaryPrompt)
+        val summary = summarize(allResults, summaryPrompt, endpoint)
         Timber.tag(TAG).i("SUMMARIZE OK | ${summary.length} chars")
         Timber.tag(TAG).i("PIPELINE DONE | ${allResults.size} results collected")
         Timber.tag(TAG).i(SEPARATOR)
         return summary
     }
 
-    private suspend fun extractData(data: String, prompt: String): String {
+    private suspend fun extractData(data: String, prompt: String, endpoint: ModelEndpoint): String {
         val messages = listOf(
             ChatMessage(
                 role = ChatMessage.ROLE_SYSTEM,
@@ -201,14 +205,17 @@ class RunPipelineTool(
             messages = messages,
             maxTokens = 200,
             temperature = 0.1f,
-            model = modelId
+            model = endpoint.modelId,
+            baseUrlOverride = endpoint.baseUrlOverride,
+            apiKeyOverride = endpoint.apiKeyOverride
         )
         return result.getOrNull()?.message?.trim() ?: ""
     }
 
     private suspend fun summarize(
         allResults: List<Pair<String, String>>,
-        summaryPrompt: String
+        summaryPrompt: String,
+        endpoint: ModelEndpoint
     ): String {
         val dataBlock = allResults.joinToString("\n\n") { (label, result) ->
             "## $label\n$result"
@@ -227,7 +234,9 @@ class RunPipelineTool(
             messages = messages,
             maxTokens = 1000,
             temperature = 0.3f,
-            model = modelId
+            model = endpoint.modelId,
+            baseUrlOverride = endpoint.baseUrlOverride,
+            apiKeyOverride = endpoint.apiKeyOverride
         )
         return result.getOrNull()?.message ?: "Pipeline completed but summarization failed"
     }
