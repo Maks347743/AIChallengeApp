@@ -31,6 +31,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.ragserver.ui.SettingsState
 
+private const val API_KEY_MASK_MIN_LENGTH = 12
+private const val API_KEY_VISIBLE_CHARS = 6
+
 @Composable
 fun SettingsScreen(settings: SettingsState, onSave: () -> Unit) {
     var topKText by remember { mutableStateOf(settings.topK.toString()) }
@@ -44,6 +47,43 @@ fun SettingsScreen(settings: SettingsState, onSave: () -> Unit) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // --- Local Mode ---
+        Text("Local Mode", style = MaterialTheme.typography.titleMedium)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Switch(
+                checked = settings.useLocalModel,
+                onCheckedChange = { settings.useLocalModel = it; onSave() }
+            )
+            Text("Use Ollama for all AI calls (no cloud APIs needed)")
+        }
+        if (settings.useLocalModel) {
+            OutlinedTextField(
+                value = settings.ollamaBaseUrl,
+                onValueChange = { settings.ollamaBaseUrl = it },
+                label = { Text("Ollama Base URL") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = settings.ollamaChatModel,
+                onValueChange = { settings.ollamaChatModel = it },
+                label = { Text("Ollama Chat Model (for rewriting + reranking)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = settings.ollamaEmbeddingModel,
+                onValueChange = { settings.ollamaEmbeddingModel = it },
+                label = { Text("Ollama Embedding Model") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(8.dp))
+
         // --- Query Rewriting ---
         Text("Query Rewriting", style = MaterialTheme.typography.titleMedium)
         Row(
@@ -52,15 +92,15 @@ fun SettingsScreen(settings: SettingsState, onSave: () -> Unit) {
         ) {
             Switch(
                 checked = settings.useQueryRewrite,
-                onCheckedChange = { settings.useQueryRewrite = it }
+                onCheckedChange = { settings.useQueryRewrite = it; onSave() }
             )
-            Text("Enable query rewriting via DeepSeek")
+            Text(if (settings.useLocalModel) "Enable query rewriting via Ollama" else "Enable query rewriting via DeepSeek")
         }
         MaskedApiKeyField(
             value = settings.deepSeekApiKey,
             onValueChange = { settings.deepSeekApiKey = it },
             label = "DeepSeek API Key",
-            enabled = settings.useQueryRewrite
+            enabled = settings.useQueryRewrite && !settings.useLocalModel
         )
 
         Spacer(Modifier.height(8.dp))
@@ -75,15 +115,15 @@ fun SettingsScreen(settings: SettingsState, onSave: () -> Unit) {
         ) {
             Switch(
                 checked = settings.useRerank,
-                onCheckedChange = { settings.useRerank = it }
+                onCheckedChange = { settings.useRerank = it; onSave() }
             )
-            Text("Enable reranking via Jina AI")
+            Text(if (settings.useLocalModel) "Enable reranking via Ollama" else "Enable reranking via Jina AI")
         }
         MaskedApiKeyField(
             value = settings.jinaApiKey,
             onValueChange = { settings.jinaApiKey = it },
             label = "Jina API Key",
-            enabled = settings.useRerank
+            enabled = settings.useRerank && !settings.useLocalModel
         )
         OutlinedTextField(
             value = thresholdText,
@@ -155,8 +195,8 @@ private fun MaskedApiKeyField(
     val maskedTransformation = remember {
         VisualTransformation { text ->
             val s = text.text
-            val masked = if (s.length > 12) {
-                s.take(6) + "•".repeat(s.length - 12) + s.takeLast(6)
+            val masked = if (s.length > API_KEY_MASK_MIN_LENGTH) {
+                s.take(API_KEY_VISIBLE_CHARS) + "•".repeat(s.length - API_KEY_MASK_MIN_LENGTH) + s.takeLast(API_KEY_VISIBLE_CHARS)
             } else {
                 s
             }

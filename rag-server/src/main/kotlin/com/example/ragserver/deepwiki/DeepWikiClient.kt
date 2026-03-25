@@ -1,5 +1,7 @@
 package com.example.ragserver.deepwiki
 
+import com.example.ragserver.ApiEndpoints
+import com.example.ragserver.network.TIMEOUT_QUERY_REWRITE_MS
 import com.example.aichallengeapp.core.mcp.McpConstants
 import com.example.aichallengeapp.core.mcp.model.JsonRpcRequest
 import com.example.aichallengeapp.core.mcp.model.JsonRpcResponse
@@ -25,12 +27,12 @@ import kotlinx.serialization.json.put
 import java.util.concurrent.atomic.AtomicInteger
 
 class DeepWikiClient(
-    private val baseUrl: String = "https://mcp.deepwiki.com/mcp"
+    private val baseUrl: String = ApiEndpoints.DEEPWIKI_MCP
 ) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) { json(json) }
-        engine { requestTimeout = 60_000 }
+        engine { requestTimeout = TIMEOUT_QUERY_REWRITE_MS }
     }
     private val idCounter = AtomicInteger(0)
     private var sessionId: String? = null

@@ -1,5 +1,7 @@
 package com.example.ragserver.embedding
 
+import com.example.ragserver.ApiEndpoints
+import com.example.ragserver.network.TIMEOUT_EMBEDDING_MS
 import com.example.ragserver.network.createHttpClient
 import com.example.ragserver.network.sharedJson
 import io.ktor.client.request.post
@@ -13,10 +15,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 class OllamaEmbeddingService(
-    private val baseUrl: String = "http://localhost:11434",
-    private val model: String = "nomic-embed-text"
+    private val baseUrlProvider: () -> String = { ApiEndpoints.OLLAMA_DEFAULT_BASE_URL },
+    private val modelProvider: () -> String = { ApiEndpoints.OLLAMA_DEFAULT_EMBEDDING_MODEL }
 ) : EmbeddingService {
-    private val client = createHttpClient(timeoutMs = 30_000)
+    private val client = createHttpClient(timeoutMs = TIMEOUT_EMBEDDING_MS)
 
     @Serializable
     private data class EmbedRequest(val model: String, val prompt: String)
@@ -29,9 +31,9 @@ class OllamaEmbeddingService(
         if (text.isBlank()) return null
 
         val rawBody = try {
-            client.post("$baseUrl/api/embeddings") {
+            client.post("${baseUrlProvider()}/api/embeddings") {
                 contentType(ContentType.Application.Json)
-                setBody(EmbedRequest(model, text.take(3000))) // nomic-embed-text: 8192 token limit, ~3000 chars is safe
+                setBody(EmbedRequest(modelProvider(), text.take(EMBED_TEXT_CHAR_LIMIT)))
             }.bodyAsText()
         } catch (e: Exception) {
             throw Exception("Ollama request failed: ${e.message}")
@@ -50,7 +52,13 @@ class OllamaEmbeddingService(
                     throw Exception("Ollama error: ${error ?: "unexpected response: $rawBody"}")
                 }
         } catch (e: Exception) {
-            throw Exception("Failed to parse Ollama response: ${e.message}\nRaw: ${rawBody.take(300)}")
+            throw Exception("Failed to parse Ollama response: ${e.message}\nRaw: ${rawBody.take(ERROR_PREVIEW_CHARS)}")
         }
+    }
+
+    private companion object {
+        // nomic-embed-text has an 8192 token limit; ~3000 chars is a safe character budget
+        const val EMBED_TEXT_CHAR_LIMIT = 3000
+        const val ERROR_PREVIEW_CHARS = 300
     }
 }

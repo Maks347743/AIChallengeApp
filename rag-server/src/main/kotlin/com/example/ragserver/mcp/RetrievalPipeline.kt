@@ -19,10 +19,16 @@ class RetrievalPipeline(
 ) {
     private val log = LoggerFactory.getLogger(RetrievalPipeline::class.java)
 
+    companion object {
+        private const val SCORE_FORMAT = "%.3f"
+        private const val MARK_PASS = "✓"
+        private const val MARK_FAIL = "✗"
+    }
+
     suspend fun retrieve(query: String, topK: Int): List<Chunk> {
         val config = configProvider()
 
-        val embeddingQuery = if (config.useQueryRewrite && config.deepSeekApiKey.isNotBlank()) {
+        val embeddingQuery = if (config.useQueryRewrite && (config.useLocalModel || config.deepSeekApiKey.isNotBlank())) {
             queryRewriter.rewrite(query).also { rewritten ->
                 log.info("[rewrite] \"$query\" → \"$rewritten\"")
             }
@@ -39,7 +45,7 @@ class RetrievalPipeline(
 
         val chunks = initialIds.mapNotNull { chunkStorage.load(it) }
 
-        return if (config.useRerank && config.jinaApiKey.isNotBlank()) {
+        return if (config.useRerank && (config.useLocalModel || config.jinaApiKey.isNotBlank())) {
             log.info("[before rerank] top-${chunks.size} by embedding:\n" +
                 chunks.mapIndexed { i, c -> "  ${i + 1}. ${c.metadata.section ?: c.metadata.title} (chunk#${c.metadata.chunkIndex})" }
                     .joinToString("\n"))
@@ -51,8 +57,8 @@ class RetrievalPipeline(
                 val ranked = chunks.zip(scores).sortedByDescending { (_, s) -> s }
                 log.info("[after rerank] sorted by relevance (threshold=${config.similarityThreshold}):\n" +
                     ranked.mapIndexed { i, (c, s) ->
-                        val mark = if (s >= config.similarityThreshold) "✓" else "✗"
-                        "  $mark ${i + 1}. ${"%.3f".format(s)}  ${c.metadata.section ?: c.metadata.title} (chunk#${c.metadata.chunkIndex})"
+                        val mark = if (s >= config.similarityThreshold) MARK_PASS else MARK_FAIL
+                        "  $mark ${i + 1}. ${SCORE_FORMAT.format(s)}  ${c.metadata.section ?: c.metadata.title} (chunk#${c.metadata.chunkIndex})"
                     }.joinToString("\n"))
 
                 val result = ranked

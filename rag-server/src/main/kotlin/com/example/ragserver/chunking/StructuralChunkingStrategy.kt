@@ -6,13 +6,12 @@ import com.example.ragserver.data.Document
 import java.util.UUID
 
 class StructuralChunkingStrategy(
-    private val maxWordsPerChunk: Int = 300
+    private val maxWordsPerChunk: Int = DEFAULT_MAX_WORDS_PER_CHUNK
 ) : ChunkingStrategy {
 
     override fun chunk(doc: Document): List<Chunk> {
         val lines = doc.content.lines()
         val chunks = mutableListOf<Chunk>()
-        val headerRegex = Regex("^(#{1,6}\\s+.+|---.*)$")
 
         var currentSection: String? = null
         val currentLines = mutableListOf<String>()
@@ -22,7 +21,7 @@ class StructuralChunkingStrategy(
             val text = currentLines.joinToString("\n").trim()
             if (text.isBlank()) return
 
-            val words = text.split(Regex("\\s+"))
+            val words = text.split(WORD_SPLIT_REGEX)
             if (words.size <= maxWordsPerChunk) {
                 chunks.add(Chunk(
                     id = UUID.randomUUID().toString(),
@@ -33,7 +32,7 @@ class StructuralChunkingStrategy(
                         file = doc.source,
                         section = currentSection,
                         chunkIndex = chunkIdx++,
-                        strategy = "structural"
+                        strategy = STRATEGY_NAME
                     )
                 ))
             } else {
@@ -50,7 +49,7 @@ class StructuralChunkingStrategy(
                             file = doc.source,
                             section = currentSection,
                             chunkIndex = chunkIdx++,
-                            strategy = "structural"
+                            strategy = STRATEGY_NAME
                         )
                     ))
                     i += maxWordsPerChunk
@@ -60,7 +59,7 @@ class StructuralChunkingStrategy(
         }
 
         for (line in lines) {
-            if (headerRegex.matches(line)) {
+            if (HEADER_REGEX.matches(line)) {
                 flush()
                 currentSection = line.trimStart('#').trim()
                 currentLines.add(line)
@@ -70,5 +69,12 @@ class StructuralChunkingStrategy(
         }
         flush()
         return chunks
+    }
+
+    companion object {
+        const val DEFAULT_MAX_WORDS_PER_CHUNK = 300
+        private const val STRATEGY_NAME = "structural"
+        private val WORD_SPLIT_REGEX = Regex("\\s+")
+        private val HEADER_REGEX = Regex("^(#{1,6}\\s+.+|---.*)$")
     }
 }

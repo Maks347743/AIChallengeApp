@@ -15,7 +15,11 @@ import com.example.ragserver.mcp.RagToolRegistry
 import com.example.ragserver.mcp.RetrievalPipeline
 import com.example.ragserver.mcp.tools.RetrieveTool
 import com.example.ragserver.network.sharedJson
+import com.example.ragserver.query.DeepSeekQueryRewriter
+import com.example.ragserver.query.OllamaQueryRewriter
 import com.example.ragserver.query.QueryRewriter
+import com.example.ragserver.reranking.JinaReranker
+import com.example.ragserver.reranking.OllamaReranker
 import com.example.ragserver.reranking.Reranker
 import com.example.ragserver.service.IndexingService
 import com.example.ragserver.ui.App
@@ -31,6 +35,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
+private const val SERVER_PORT = 3002
+
 fun main() = application {
     val paths = RagServerPaths.fromHome()
     RagServerPaths.initDirectories(paths)
@@ -41,7 +47,10 @@ fun main() = application {
     val documentStorage = DocumentStorage(paths.docs)
     val chunkStorage = ChunkStorage(paths.chunks, sharedJson)
     val vectorIndex = VectorIndex()
-    val embeddingService = OllamaEmbeddingService()
+    val embeddingService = OllamaEmbeddingService(
+        baseUrlProvider = { settingsState.ollamaBaseUrl },
+        modelProvider = { settingsState.ollamaEmbeddingModel }
+    )
 
     val indexingService = IndexingService(
         documentStorage = documentStorage,
@@ -56,8 +65,27 @@ fun main() = application {
 
     val deepWikiImportService = DeepWikiImportService(DeepWikiClient(), documentStorage)
 
-    val queryRewriter = QueryRewriter(apiKeyProvider = { settingsState.deepSeekApiKey })
-    val reranker = Reranker(apiKeyProvider = { settingsState.jinaApiKey })
+    val cloudQueryRewriter = DeepSeekQueryRewriter(apiKeyProvider = { settingsState.deepSeekApiKey })
+    val localQueryRewriter = OllamaQueryRewriter(
+        baseUrlProvider = { settingsState.ollamaBaseUrl },
+        modelProvider = { settingsState.ollamaChatModel }
+    )
+    val cloudReranker = JinaReranker(apiKeyProvider = { settingsState.jinaApiKey })
+    val localReranker = OllamaReranker(
+        baseUrlProvider = { settingsState.ollamaBaseUrl },
+        modelProvider = { settingsState.ollamaChatModel }
+    )
+
+    val queryRewriter = object : QueryRewriter {
+        override suspend fun rewrite(query: String) =
+            if (settingsState.useLocalModel) localQueryRewriter.rewrite(query)
+            else cloudQueryRewriter.rewrite(query)
+    }
+    val reranker = object : Reranker {
+        override suspend fun rerank(query: String, documents: List<String>) =
+            if (settingsState.useLocalModel) localReranker.rerank(query, documents)
+            else cloudReranker.rerank(query, documents)
+    }
 
     val pipeline = RetrievalPipeline(
         embeddingService = embeddingService,
@@ -74,7 +102,7 @@ fun main() = application {
 
     val serverScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     serverScope.launch {
-        embeddedServer(Netty, port = 3002) {
+        embeddedServer(Netty, port = SERVER_PORT) {
             install(ContentNegotiation) { json(sharedJson) }
             routing {
                 ragMcpRoutes(mcpHandler)
@@ -82,7 +110,7 @@ fun main() = application {
         }.start(wait = false)
     }
 
-    Window(onCloseRequest = ::exitApplication, title = "RAG Server — Port 3002") {
+    Window(onCloseRequest = ::exitApplication, title = "RAG Server — Port $SERVER_PORT") {
         App(indexingService, documentStorage, deepWikiImportService, settingsState)
     }
 }

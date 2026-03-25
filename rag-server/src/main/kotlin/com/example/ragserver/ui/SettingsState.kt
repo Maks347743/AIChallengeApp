@@ -16,6 +16,10 @@ class SettingsState(private val repo: ConfigRepository) {
     var topK by mutableStateOf(loaded.topK)
     var initialK by mutableStateOf(loaded.initialK)
     var similarityThreshold by mutableStateOf(loaded.similarityThreshold)
+    var useLocalModel by mutableStateOf(loaded.useLocalModel)
+    var ollamaBaseUrl by mutableStateOf(loaded.ollamaBaseUrl)
+    var ollamaChatModel by mutableStateOf(loaded.ollamaChatModel)
+    var ollamaEmbeddingModel by mutableStateOf(loaded.ollamaEmbeddingModel)
 
     fun toConfig() = RagConfig(
         useQueryRewrite = useQueryRewrite,
@@ -24,7 +28,11 @@ class SettingsState(private val repo: ConfigRepository) {
         jinaApiKey = jinaApiKey,
         topK = topK,
         initialK = initialK,
-        similarityThreshold = similarityThreshold
+        similarityThreshold = similarityThreshold,
+        useLocalModel = useLocalModel,
+        ollamaBaseUrl = ollamaBaseUrl,
+        ollamaChatModel = ollamaChatModel,
+        ollamaEmbeddingModel = ollamaEmbeddingModel
     )
 
     fun save() {
