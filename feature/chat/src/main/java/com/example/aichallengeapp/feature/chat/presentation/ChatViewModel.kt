@@ -330,7 +330,7 @@ class ChatViewModel(
 
                     persistSession(finalMessages)
                     updateMetrics(loopResult.chatResult.metrics)
-                    updateTaskMemory()
+                    updateTaskMemory(settings)
                 }
             },
             onFailure = { throwable ->
@@ -606,13 +606,13 @@ class ChatViewModel(
         updateMetricsUseCase(activeChatId, currentTotal, responseMetrics)
     }
 
-    private fun updateTaskMemory() {
+    private fun updateTaskMemory(settings: ChatSettings) {
         viewModelScope.launch {
             val recent = _state.value.messages
                 .filter { it.role in listOf(ChatMessage.ROLE_USER, ChatMessage.ROLE_ASSISTANT) }
                 .takeLast(10)
             if (recent.size < 2) return@launch
-            val updated = updateTaskMemoryUseCase(_state.value.taskMemory, recent)
+            val updated = updateTaskMemoryUseCase(_state.value.taskMemory, recent, settings)
             if (updated.isBlank()) return@launch
             _state.update { it.copy(taskMemory = updated) }
             sessionManager.updateTaskMemory(activeChatId, updated)

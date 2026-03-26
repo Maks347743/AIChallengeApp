@@ -108,7 +108,7 @@ val chatModule = module {
     factory { ValidateConstraintsUseCase() }
     factory { BuildSystemPromptUseCase() }
     factory { UpdateMetricsUseCase(get()) }
-    factory { UpdateTaskMemoryUseCase(get()) }
+    factory { UpdateTaskMemoryUseCase(get<SendChatMessageUseCase>()) }
     factory {
         ExecuteToolCallsUseCase(
             mcpToolClientManager = get(),

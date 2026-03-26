@@ -194,11 +194,11 @@ private fun MaskedApiKeyField(
 
     val maskedTransformation = remember {
         VisualTransformation { text ->
-            val s = text.text
-            val masked = if (s.length > API_KEY_MASK_MIN_LENGTH) {
-                s.take(API_KEY_VISIBLE_CHARS) + "•".repeat(s.length - API_KEY_MASK_MIN_LENGTH) + s.takeLast(API_KEY_VISIBLE_CHARS)
+            val innerText = text.text
+            val masked = if (innerText.length > API_KEY_MASK_MIN_LENGTH) {
+                innerText.take(API_KEY_VISIBLE_CHARS) + "•".repeat(innerText.length - API_KEY_MASK_MIN_LENGTH) + innerText.takeLast(API_KEY_VISIBLE_CHARS)
             } else {
-                s
+                innerText
             }
             TransformedText(AnnotatedString(masked), OffsetMapping.Identity)
         }
