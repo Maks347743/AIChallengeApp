@@ -47,6 +47,20 @@ fun SettingsScreen(settings: SettingsState, onSave: () -> Unit) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // --- Server Token ---
+        Text("Server Token", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(
+            value = settings.serverToken,
+            onValueChange = {},
+            label = { Text("Copy this token into the Android app settings") },
+            modifier = Modifier.fillMaxWidth(),
+            readOnly = true
+        )
+
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(8.dp))
+
         // --- Local Mode ---
         Text("Local Mode", style = MaterialTheme.typography.titleMedium)
         Row(

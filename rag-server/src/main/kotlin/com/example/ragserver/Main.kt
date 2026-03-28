@@ -34,17 +34,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-
+import kotlinx.coroutines.runBlocking
 private const val SERVER_PORT = 3002
 
-fun main() = application {
+fun main(args: Array<String>) {
+    if (args.contains("--headless")) {
+        startHeadless()
+    } else {
+        startWithUi()
+    }
+}
+
+private fun buildMcpHandler(settingsState: SettingsState): RagMcpRequestHandler {
     val paths = RagServerPaths.fromHome()
-    RagServerPaths.initDirectories(paths)
-
-    val configRepo = FileConfigRepository(paths.configFile, sharedJson)
-    val settingsState = SettingsState(configRepo)
-
-    val documentStorage = DocumentStorage(paths.docs)
     val chunkStorage = ChunkStorage(paths.chunks, sharedJson)
     val vectorIndex = VectorIndex()
     val embeddingService = OllamaEmbeddingService(
@@ -52,18 +54,7 @@ fun main() = application {
         modelProvider = { settingsState.ollamaEmbeddingModel }
     )
 
-    val indexingService = IndexingService(
-        documentStorage = documentStorage,
-        chunkStorage = chunkStorage,
-        embeddingService = embeddingService,
-        vectorIndex = vectorIndex,
-        indexPath = paths.indexBin
-    )
-
-    // Attempt to load a previously saved index on startup
     vectorIndex.load(paths.indexBin)
-
-    val deepWikiImportService = DeepWikiImportService(DeepWikiClient(), documentStorage)
 
     val cloudQueryRewriter = DeepSeekQueryRewriter(apiKeyProvider = { settingsState.deepSeekApiKey })
     val localQueryRewriter = OllamaQueryRewriter(
@@ -98,15 +89,59 @@ fun main() = application {
 
     val retrieveTool = RetrieveTool(pipeline, configProvider = { settingsState.toConfig() })
     val toolRegistry = RagToolRegistry(retrieveTool)
-    val mcpHandler = RagMcpRequestHandler(toolRegistry)
+    return RagMcpRequestHandler(toolRegistry)
+}
+
+private fun startHeadless() {
+    val paths = RagServerPaths.fromHome()
+    RagServerPaths.initDirectories(paths)
+    val configRepo = FileConfigRepository(paths.configFile, sharedJson)
+    val settingsState = SettingsState(configRepo)
+    val mcpHandler = buildMcpHandler(settingsState)
+
+    println("Starting RAG Server (headless) on port $SERVER_PORT")
+    runBlocking {
+        embeddedServer(Netty, port = SERVER_PORT) {
+            install(ContentNegotiation) { json(sharedJson) }
+            routing { ragMcpRoutes(mcpHandler) }
+        }.start(wait = true)
+    }
+}
+
+private fun startWithUi() = application {
+    val paths = RagServerPaths.fromHome()
+    RagServerPaths.initDirectories(paths)
+
+    val configRepo = FileConfigRepository(paths.configFile, sharedJson)
+    val settingsState = SettingsState(configRepo)
+
+    val documentStorage = DocumentStorage(paths.docs)
+    val chunkStorage = ChunkStorage(paths.chunks, sharedJson)
+    val vectorIndex = VectorIndex()
+    val embeddingService = OllamaEmbeddingService(
+        baseUrlProvider = { settingsState.ollamaBaseUrl },
+        modelProvider = { settingsState.ollamaEmbeddingModel }
+    )
+
+    val indexingService = IndexingService(
+        documentStorage = documentStorage,
+        chunkStorage = chunkStorage,
+        embeddingService = embeddingService,
+        vectorIndex = vectorIndex,
+        indexPath = paths.indexBin
+    )
+
+    // Attempt to load a previously saved index on startup
+    vectorIndex.load(paths.indexBin)
+
+    val deepWikiImportService = DeepWikiImportService(DeepWikiClient(), documentStorage)
+    val mcpHandler = buildMcpHandler(settingsState)
 
     val serverScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     serverScope.launch {
         embeddedServer(Netty, port = SERVER_PORT) {
             install(ContentNegotiation) { json(sharedJson) }
-            routing {
-                ragMcpRoutes(mcpHandler)
-            }
+            routing { ragMcpRoutes(mcpHandler) }
         }.start(wait = false)
     }
 

@@ -2,7 +2,6 @@ package com.example.aichallengeapp.feature.settings.presentation
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,7 +22,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -40,7 +38,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.aichallengeapp.feature.settings.R
-import com.example.aichallengeapp.feature.settings.domain.model.DeepSeekModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -94,56 +91,6 @@ fun SettingsScreen(
                     vertical = dimensionResource(R.dimen.settings_content_padding_vertical)
                 )
         ) {
-            // Model section
-            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {
-                    Text(
-                        text = stringResource(R.string.label_model),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
-                    DeepSeekModel.entries.forEach { model ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { viewModel.onIntent(SettingsIntent.UpdateModel(model)) },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = settings.model == model,
-                                onClick = { viewModel.onIntent(SettingsIntent.UpdateModel(model)) }
-                            )
-                            Text(
-                                text = model.displayName,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    }
-                    AnimatedVisibility(visible = settings.model == DeepSeekModel.OLLAMA) {
-                        Column {
-                            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
-                            OutlinedTextField(
-                                value = settings.ollamaBaseUrl,
-                                onValueChange = { viewModel.onIntent(SettingsIntent.UpdateOllamaBaseUrl(it)) },
-                                label = { Text("Ollama Base URL") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_title_spacing)))
-                            OutlinedTextField(
-                                value = settings.ollamaModelName,
-                                onValueChange = { viewModel.onIntent(SettingsIntent.UpdateOllamaModelName(it)) },
-                                label = { Text("Model name (e.g. qwen3:30b)") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_card_spacing)))
-
             // System Prompt section
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {
@@ -176,7 +123,7 @@ fun SettingsScreen(
                         value = state.maxTokensText,
                         onValueChange = { viewModel.onIntent(SettingsIntent.UpdateMaxTokens(it)) },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(stringResource(R.string.hint_max_tokens)) },
+                        placeholder = { Text(stringResource(R.string.hint_max_tokens), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true
                     )

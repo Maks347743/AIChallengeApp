@@ -434,7 +434,7 @@ fun ChatScreen(
                         value = state.inputText,
                         onValueChange = { viewModel.onIntent(ChatIntent.UpdateInput(it)) },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text(stringResource(R.string.hint_message_input)) },
+                        placeholder = { Text(stringResource(R.string.hint_message_input), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) },
                         maxLines = 4
                     )
                     IconButton(

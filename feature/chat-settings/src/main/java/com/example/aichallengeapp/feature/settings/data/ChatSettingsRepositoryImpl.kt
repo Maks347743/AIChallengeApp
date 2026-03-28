@@ -7,18 +7,15 @@ import kotlinx.serialization.json.Json
 
 class ChatSettingsRepositoryImpl(
     private val sessionRepository: ChatSessionRepository,
-    private val json: Json,
-    private val defaultOllamaBaseUrl: String = "http://10.0.2.2:11434/v1"
+    private val json: Json
 ) : ChatSettingsRepository {
 
-    private fun defaultSettings() = ChatSettings(ollamaBaseUrl = defaultOllamaBaseUrl)
-
     override suspend fun load(chatId: String): ChatSettings {
-        val settingsJson = sessionRepository.getSettingsJson(chatId) ?: return defaultSettings()
+        val settingsJson = sessionRepository.getSettingsJson(chatId) ?: return ChatSettings()
         return try {
             json.decodeFromString<ChatSettings>(settingsJson)
         } catch (_: Exception) {
-            defaultSettings()
+            ChatSettings()
         }
     }
 

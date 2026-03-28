@@ -7,7 +7,7 @@ import com.example.aichallengeapp.core.mcp.model.ToolDefinition
 import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClientManager
 import com.example.aichallengeapp.feature.settings.domain.model.ModelEndpoint
 import com.example.aichallengeapp.feature.settings.domain.model.resolveEndpoint
-import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
+import com.example.aichallengeapp.feature.settings.domain.repository.AppSettingsRepository
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -25,7 +25,7 @@ import timber.log.Timber
 class RunPipelineTool(
     private val mcpToolClientManager: McpToolClientManager,
     private val chatRepository: ChatRepository,
-    private val settingsRepository: ChatSettingsRepository
+    private val settingsRepository: AppSettingsRepository
 ) : LocalToolHandler {
 
     override val definition = ToolDefinition(
@@ -68,7 +68,7 @@ class RunPipelineTool(
 
     override suspend fun execute(arguments: JsonObject?, chatId: String): String {
         if (arguments == null) return "Missing arguments for run_pipeline"
-        val endpoint = settingsRepository.load(chatId).resolveEndpoint()
+        val endpoint = settingsRepository.load().resolveEndpoint()
 
         val stepsElement = arguments["steps"] ?: return "Missing required parameter: steps"
         val steps: JsonArray = try {

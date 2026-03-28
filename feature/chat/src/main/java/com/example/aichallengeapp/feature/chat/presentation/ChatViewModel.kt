@@ -7,6 +7,7 @@ import com.example.aichallengeapp.core.database.domain.model.ChatResult
 import com.example.aichallengeapp.core.database.domain.model.Constraint
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
 import com.example.aichallengeapp.core.database.domain.repository.UserProfileRepository
+import com.example.aichallengeapp.core.mcp.HomeServerConfig
 import com.example.aichallengeapp.core.mcp.model.ToolDefinition
 import com.example.aichallengeapp.core.periodictask.domain.model.PeriodicTaskMessageBus
 import kotlinx.serialization.json.Json
@@ -21,8 +22,10 @@ import com.example.aichallengeapp.feature.chat.domain.usecase.SendChatMessageUse
 import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateMetricsUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.UpdateTaskMemoryUseCase
 import com.example.aichallengeapp.feature.chat.domain.usecase.ValidateConstraintsUseCase
+import com.example.aichallengeapp.feature.settings.domain.model.AppSettings
 import com.example.aichallengeapp.feature.settings.domain.model.ChatSettings
 import com.example.aichallengeapp.feature.settings.domain.model.resolveEndpoint
+import com.example.aichallengeapp.feature.settings.domain.repository.AppSettingsRepository
 import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,6 +58,8 @@ class ChatViewModel(
     private val getToolDefinitionsUseCase: GetToolDefinitionsUseCase,
     private val updateTaskMemoryUseCase: UpdateTaskMemoryUseCase,
     private val settingsRepository: ChatSettingsRepository,
+    private val appSettingsRepository: AppSettingsRepository,
+    private val homeServerConfig: HomeServerConfig,
     private val sessionManager: ChatSessionManager,
     private val metricsRepository: ChatMetricsRepository,
     private val userProfileRepository: UserProfileRepository,
@@ -68,6 +73,7 @@ class ChatViewModel(
     private val activeChatId: String get() = _activeChatId.value
 
     private var cachedToolDefinitions: List<ToolDefinition>? = null
+    private var cachedAppSettings: AppSettings = AppSettings()
 
     init {
         viewModelScope.launch {
@@ -110,7 +116,13 @@ class ChatViewModel(
                 .flatMapLatest { id -> metricsRepository.observeMetrics(id) }
                 .collect { metrics -> _state.update { it.copy(chatMetrics = metrics) } }
         }
-        viewModelScope.launch { loadToolDefinitions() }
+        viewModelScope.launch {
+            val appSettings = appSettingsRepository.load()
+            cachedAppSettings = appSettings
+            homeServerConfig.baseUrl = appSettings.serverBaseUrl
+            homeServerConfig.apiKey = appSettings.mcpServerToken
+            loadToolDefinitions()
+        }
         viewModelScope.launch {
             periodicTaskMessageBus.messages.collect { message ->
                 if (message.chatId == activeChatId) {
@@ -248,6 +260,7 @@ class ChatViewModel(
 
         viewModelScope.launch {
             val settings = settingsRepository.load(activeChatId)
+            val appSettings = cachedAppSettings
             val profile = _state.value.currentProfileId?.let { userProfileRepository.getById(it) }
             val globalPrefix = profile?.description ?: ""
 
@@ -260,11 +273,11 @@ class ChatViewModel(
             val doSummary = settings.summaryEnabled
                 && existingMessages.size > settings.retainedMessageCount
             if (doStickyFacts) {
-                sendMessageWithStickyFacts(settings, globalPrefix, existingMessages, userMessage, constraints, tools)
+                sendMessageWithStickyFacts(settings, appSettings, globalPrefix, existingMessages, userMessage, constraints, tools)
             } else if (doSummary) {
-                sendMessageWithSummary(settings, globalPrefix, existingMessages, userMessage, constraints, tools)
+                sendMessageWithSummary(settings, appSettings, globalPrefix, existingMessages, userMessage, constraints, tools)
             } else {
-                sendMessageNormal(settings, globalPrefix, constraints, tools)
+                sendMessageNormal(settings, appSettings, globalPrefix, constraints, tools)
             }
         }
     }
@@ -286,18 +299,20 @@ class ChatViewModel(
 
     private suspend fun sendWithSettings(
         settings: ChatSettings,
+        appSettings: AppSettings,
         messages: List<ChatMessage>,
         maxTokens: Int? = settings.maxTokens,
         temperature: Float? = settings.temperature,
         tools: List<ToolDefinition>? = null
     ): Result<ChatResult> {
-        val endpoint = settings.resolveEndpoint()
+        val endpoint = appSettings.resolveEndpoint()
         return sendChatMessageUseCase(messages, maxTokens, temperature, endpoint.modelId, tools, endpoint.baseUrlOverride, endpoint.apiKeyOverride)
     }
 
     private suspend fun sendAndProcessResponse(
         result: Result<ChatResult>,
         settings: ChatSettings,
+        appSettings: AppSettings,
         globalPrefix: String,
         constraints: List<Constraint>,
         tools: List<ToolDefinition>?,
@@ -307,7 +322,7 @@ class ChatViewModel(
         result.fold(
             onSuccess = { initialResult ->
                 val loopResult = try {
-                    processToolCallingLoop(initialResult, settings, tools, buildHistory)
+                    processToolCallingLoop(initialResult, settings, appSettings, tools, buildHistory)
                 } catch (e: Exception) {
                     _state.update { it.copy(isLoading = false, error = e.message ?: "Tool calling failed") }
                     return
@@ -321,7 +336,7 @@ class ChatViewModel(
                     return
                 }
 
-                handleResponseWithConstraints(loopResult.chatResult.message, constraints, settings, globalPrefix) { finalContent ->
+                handleResponseWithConstraints(loopResult.chatResult.message, constraints, settings, appSettings, globalPrefix) { finalContent ->
                     val (mainContent, extractedCitations) = splitCitations(finalContent)
                     val contentWithSources = appendSourcesIfNeeded(mainContent, loopResult.chunkSources, extractedCitations)
                     val currentMessages = _state.value.messages
@@ -330,7 +345,7 @@ class ChatViewModel(
 
                     persistSession(finalMessages)
                     updateMetrics(loopResult.chatResult.metrics)
-                    updateTaskMemory(settings)
+                    updateTaskMemory(appSettings)
                 }
             },
             onFailure = { throwable ->
@@ -342,6 +357,7 @@ class ChatViewModel(
     private suspend fun processToolCallingLoop(
         initialResult: ChatResult,
         settings: ChatSettings,
+        appSettings: AppSettings,
         tools: List<ToolDefinition>?,
         buildHistory: (messages: List<ChatMessage>) -> List<ChatMessage>
     ): ToolCallingLoopResult {
@@ -374,7 +390,7 @@ class ChatViewModel(
             }
             allChunkSources += executionResult.chunkSources
 
-            val nextResult = sendWithSettings(settings, buildHistory(_state.value.messages), tools = tools)
+            val nextResult = sendWithSettings(settings, appSettings, buildHistory(_state.value.messages), tools = tools)
             if (nextResult.isFailure) {
                 throw nextResult.exceptionOrNull() ?: Exception("Tool calling loop failed")
             }
@@ -383,7 +399,7 @@ class ChatViewModel(
 
         if (result.finishReason == ChatResult.FINISH_REASON_TOOL_CALLS) {
             Timber.tag("ChatViewModel").w("Max tool iterations reached, forcing final response without tools")
-            val finalResult = sendWithSettings(settings, buildHistory(_state.value.messages))
+            val finalResult = sendWithSettings(settings, appSettings, buildHistory(_state.value.messages))
             if (finalResult.isSuccess) result = finalResult.getOrThrow()
         }
 
@@ -421,6 +437,7 @@ class ChatViewModel(
 
     private suspend fun sendMessageNormal(
         settings: ChatSettings,
+        appSettings: AppSettings,
         globalPrefix: String,
         constraints: List<Constraint> = emptyList(),
         tools: List<ToolDefinition>? = null
@@ -430,9 +447,9 @@ class ChatViewModel(
             addAll(messages)
         }
 
-        val result = sendWithSettings(settings, buildHistory(_state.value.messages), tools = tools)
+        val result = sendWithSettings(settings, appSettings, buildHistory(_state.value.messages), tools = tools)
 
-        sendAndProcessResponse(result, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, currentMessages ->
+        sendAndProcessResponse(result, settings, appSettings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, currentMessages ->
             val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
             val messagesWithResponse = currentMessages + assistantMessage
             if (settings.slidingWindowEnabled && messagesWithResponse.size > settings.slidingWindowSize) {
@@ -445,6 +462,7 @@ class ChatViewModel(
 
     private suspend fun sendMessageWithSummary(
         settings: ChatSettings,
+        appSettings: AppSettings,
         globalPrefix: String,
         existingMessages: List<ChatMessage>,
         userMessage: ChatMessage,
@@ -474,7 +492,7 @@ class ChatViewModel(
                 content = "Сделай краткое summary следующей переписки. Уложись в $summaryMaxTokens токенов:\n\n$conversationText"
             )
         )
-        val summaryResult = sendWithSettings(settings, summaryHistory, maxTokens = null, temperature = null)
+        val summaryResult = sendWithSettings(settings, appSettings, summaryHistory, maxTokens = null, temperature = null)
 
         if (summaryResult.isFailure) {
             _state.update {
@@ -493,9 +511,9 @@ class ChatViewModel(
             addAll(toolMessages)
         }
 
-        val mainResult = sendWithSettings(settings, buildHistory(_state.value.messages), tools = tools)
+        val mainResult = sendWithSettings(settings, appSettings, buildHistory(_state.value.messages), tools = tools)
 
-        sendAndProcessResponse(mainResult, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, _ ->
+        sendAndProcessResponse(mainResult, settings, appSettings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, _ ->
             val summaryMessage = ChatMessage(role = ChatMessage.ROLE_SUMMARY, content = summaryContent)
             val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
             listOf(summaryMessage) + recentMessages + userMessage + assistantMessage
@@ -504,6 +522,7 @@ class ChatViewModel(
 
     private suspend fun sendMessageWithStickyFacts(
         settings: ChatSettings,
+        appSettings: AppSettings,
         globalPrefix: String,
         existingMessages: List<ChatMessage>,
         userMessage: ChatMessage,
@@ -528,7 +547,7 @@ class ChatViewModel(
             ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = PromptTemplates.FACTS_EXTRACTOR_SYSTEM_PROMPT),
             ChatMessage(role = ChatMessage.ROLE_USER, content = "Сделай краткую выдержку важных данных следующей переписки в формате факт:значение. Анализируй текст, который идет после слова Контент. Каждый новый факт переноси на новую строку, чтобы выглядело аккуратно. Контент:\n\n$conversationText")
         )
-        val factsResult = sendWithSettings(settings, factsHistory, maxTokens = null, temperature = null)
+        val factsResult = sendWithSettings(settings, appSettings, factsHistory, maxTokens = null, temperature = null)
 
         if (factsResult.isFailure) {
             _state.update { it.copy(isLoading = false, error = factsResult.exceptionOrNull()?.message ?: "Facts extraction failed") }
@@ -546,9 +565,9 @@ class ChatViewModel(
             addAll(toolMessages)
         }
 
-        val mainResult = sendWithSettings(settings, buildHistory(_state.value.messages), tools = tools)
+        val mainResult = sendWithSettings(settings, appSettings, buildHistory(_state.value.messages), tools = tools)
 
-        sendAndProcessResponse(mainResult, settings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, _ ->
+        sendAndProcessResponse(mainResult, settings, appSettings, globalPrefix, constraints, tools, ::buildHistory) { finalContent, _ ->
             val factsMessage = ChatMessage(role = ChatMessage.ROLE_FACTS, content = factsContent)
             val assistantMessage = ChatMessage(role = ChatMessage.ROLE_ASSISTANT, content = finalContent)
             listOf(factsMessage) + recentMessages.filter { it.role != ChatMessage.ROLE_FACTS } + userMessage + assistantMessage
@@ -559,6 +578,7 @@ class ChatViewModel(
         responseMessage: String,
         constraints: List<Constraint>,
         settings: ChatSettings,
+        appSettings: AppSettings,
         globalPrefix: String,
         onSuccess: suspend (String) -> Unit
     ) {
@@ -581,7 +601,7 @@ class ChatViewModel(
                 add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory)))
                 addAll(_state.value.messages)
             }
-            val retryResult = sendWithSettings(settings, retryHistory)
+            val retryResult = sendWithSettings(settings, appSettings, retryHistory)
             if (retryResult.isFailure) {
                 _state.update { it.copy(isLoading = false, error = retryResult.exceptionOrNull()?.message ?: "Retry failed") }
                 return
@@ -606,13 +626,13 @@ class ChatViewModel(
         updateMetricsUseCase(activeChatId, currentTotal, responseMetrics)
     }
 
-    private fun updateTaskMemory(settings: ChatSettings) {
+    private fun updateTaskMemory(appSettings: AppSettings) {
         viewModelScope.launch {
             val recent = _state.value.messages
                 .filter { it.role in listOf(ChatMessage.ROLE_USER, ChatMessage.ROLE_ASSISTANT) }
                 .takeLast(10)
             if (recent.size < 2) return@launch
-            val updated = updateTaskMemoryUseCase(_state.value.taskMemory, recent, settings)
+            val updated = updateTaskMemoryUseCase(_state.value.taskMemory, recent, appSettings)
             if (updated.isBlank()) return@launch
             _state.update { it.copy(taskMemory = updated) }
             sessionManager.updateTaskMemory(activeChatId, updated)

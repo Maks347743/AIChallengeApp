@@ -12,7 +12,8 @@ interface ChatRepository {
         model: String,
         tools: List<ToolDefinition>? = null,
         baseUrlOverride: String? = null,
-        apiKeyOverride: String? = null
+        apiKeyOverride: String? = null,
+        think: Boolean? = null
     ): Result<ChatResult>
 
     suspend fun sendRawMessage(prompt: String): String

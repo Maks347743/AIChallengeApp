@@ -14,7 +14,6 @@ data class ChatSettings(
     val systemPrompt: String = DEFAULT_SYSTEM_PROMPT,
     val maxTokens: Int? = null,
     val temperature: Float = DEFAULT_TEMPERATURE,
-    val model: DeepSeekModel = DeepSeekModel.DEEPSEEK_CHAT,
     val summaryEnabled: Boolean = false,
     val retainedMessageCount: Int = DEFAULT_RETAINED_MESSAGE_COUNT,
     val summaryMaxTokens: Int = DEFAULT_SUMMARY_MAX_TOKENS,
@@ -23,6 +22,4 @@ data class ChatSettings(
     val stickyFactsEnabled: Boolean = false,
     val stickyFactsRecentMessages: Int = DEFAULT_STICKY_FACTS_RECENT_MESSAGES,
     val ragEnabled: Boolean = true,
-    val ollamaBaseUrl: String = "http://10.0.2.2:11434/v1",
-    val ollamaModelName: String = "qwen3:8b",
 )

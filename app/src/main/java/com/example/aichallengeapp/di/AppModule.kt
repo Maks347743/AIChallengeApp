@@ -23,7 +23,6 @@ val appModule = module {
     }
 
     single(named("baseUrl")) { BuildConfig.DEEPSEEK_BASE_URL }
-    single(named("ollamaBaseUrl")) { BuildConfig.OLLAMA_BASE_URL }
     single(named("isDebug")) { BuildConfig.DEBUG }
 
     single(named("githubKey")) {
@@ -34,7 +33,6 @@ val appModule = module {
     single(named("mcpBaseUrl")) { BuildConfig.MCP_SERVER_URL }
     single(named("deepwikiMcpUrl")) { BuildConfig.DEEPWIKI_MCP_URL }
     single(named("ragMcpUrl")) { BuildConfig.RAG_MCP_URL }
-
     single<PeriodicTaskServiceController> { PeriodicTaskServiceControllerImpl(get()) }
     single { PeriodicTaskManager(get(), get()) }
 

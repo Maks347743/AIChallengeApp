@@ -8,6 +8,7 @@ import io.ktor.server.routing.Routing
 import io.ktor.server.routing.post
 import java.util.UUID
 
+
 fun Routing.ragMcpRoutes(handler: RagMcpRequestHandler) {
     post("/mcp") {
         val request = call.receive<JsonRpcRequest>()

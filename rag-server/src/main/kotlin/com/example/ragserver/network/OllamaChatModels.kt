@@ -27,7 +27,8 @@ data class OllamaChatRequest(
     val model: String,
     val messages: List<ChatMessage>,
     val stream: Boolean = false,
-    val think: Boolean = false
+    val think: Boolean = false,
+    @SerialName("keep_alive") val keepAlive: Int = -1
 )
 
 /** Native Ollama /api/chat response. */

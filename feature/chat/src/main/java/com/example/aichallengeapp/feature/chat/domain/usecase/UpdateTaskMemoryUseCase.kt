@@ -1,14 +1,15 @@
 package com.example.aichallengeapp.feature.chat.domain.usecase
 
 import com.example.aichallengeapp.core.database.domain.model.ChatMessage
-import com.example.aichallengeapp.feature.settings.domain.model.ChatSettings
+import com.example.aichallengeapp.feature.settings.domain.model.AppSettings
 import com.example.aichallengeapp.feature.settings.domain.model.resolveEndpoint
+
 
 class UpdateTaskMemoryUseCase(private val sendChatMessageUseCase: SendChatMessageUseCase) {
     suspend operator fun invoke(
         currentMemory: String?,
         recentMessages: List<ChatMessage>,
-        settings: ChatSettings
+        appSettings: AppSettings
     ): String {
         val prompt = buildString {
             append("Ты — экстрактор памяти задачи. Обнови память на основе диалога.\n")
@@ -18,16 +19,17 @@ class UpdateTaskMemoryUseCase(private val sendChatMessageUseCase: SendChatMessag
             append("\nВерни ТОЛЬКО краткий текст (3-7 пунктов, тезисно):\n")
             append("Цель: ...\nУточнено: ...\nОграничения: ...")
         }
-        val endpoint = settings.resolveEndpoint()
+        val endpoint = appSettings.resolveEndpoint()
         val messages = listOf(ChatMessage(role = ChatMessage.ROLE_USER, content = prompt))
         return sendChatMessageUseCase(
             messages = messages,
-            maxTokens = 300,
+            maxTokens = null,
             temperature = 0.3f,
             model = endpoint.modelId,
             tools = null,
             baseUrlOverride = endpoint.baseUrlOverride,
-            apiKeyOverride = endpoint.apiKeyOverride
+            apiKeyOverride = endpoint.apiKeyOverride,
+            think = false
         ).getOrElse { return "" }.message
     }
 }

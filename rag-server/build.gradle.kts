@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.desktop)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.shadow)
 }
 
 kotlin {
@@ -38,4 +39,10 @@ compose.desktop {
     application {
         mainClass = "com.example.ragserver.MainKt"
     }
+}
+
+tasks.shadowJar {
+    mergeServiceFiles()
+    archiveClassifier.set("")
+    manifest { attributes["Main-Class"] = "com.example.ragserver.MainKt" }
 }

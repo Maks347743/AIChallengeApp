@@ -36,7 +36,6 @@ class SettingsViewModel(
 
     fun onIntent(intent: SettingsIntent) {
         when (intent) {
-            is SettingsIntent.UpdateModel -> updateSettings { copy(model = intent.model) }
             is SettingsIntent.UpdateSystemPrompt -> updateSettings { copy(systemPrompt = intent.text) }
             is SettingsIntent.UpdateMaxTokens -> {
                 _state.update { it.copy(maxTokensText = intent.value) }
@@ -77,8 +76,6 @@ class SettingsViewModel(
                     ?.let { v -> updateSettings { copy(stickyFactsRecentMessages = v) } }
             }
             is SettingsIntent.ToggleRag -> updateSettings { copy(ragEnabled = intent.enabled) }
-            is SettingsIntent.UpdateOllamaBaseUrl -> updateSettings { copy(ollamaBaseUrl = intent.value) }
-            is SettingsIntent.UpdateOllamaModelName -> updateSettings { copy(ollamaModelName = intent.value) }
         }
     }
 

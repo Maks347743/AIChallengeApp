@@ -20,6 +20,7 @@ class SettingsState(private val repo: ConfigRepository) {
     var ollamaBaseUrl by mutableStateOf(loaded.ollamaBaseUrl)
     var ollamaChatModel by mutableStateOf(loaded.ollamaChatModel)
     var ollamaEmbeddingModel by mutableStateOf(loaded.ollamaEmbeddingModel)
+    val serverToken: String = loaded.serverToken ?: ""
 
     fun toConfig() = RagConfig(
         useQueryRewrite = useQueryRewrite,
@@ -32,7 +33,8 @@ class SettingsState(private val repo: ConfigRepository) {
         useLocalModel = useLocalModel,
         ollamaBaseUrl = ollamaBaseUrl,
         ollamaChatModel = ollamaChatModel,
-        ollamaEmbeddingModel = ollamaEmbeddingModel
+        ollamaEmbeddingModel = ollamaEmbeddingModel,
+        serverToken = serverToken.ifEmpty { null }
     )
 
     fun save() {

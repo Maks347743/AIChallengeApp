@@ -41,7 +41,8 @@ class ChatRepositoryImpl(
         model: String,
         tools: List<ToolDefinition>?,
         baseUrlOverride: String?,
-        apiKeyOverride: String?
+        apiKeyOverride: String?,
+        think: Boolean?
     ): Result<ChatResult> {
         return runCatching {
             val effectiveBaseUrl = baseUrlOverride ?: baseUrl
@@ -52,7 +53,8 @@ class ChatRepositoryImpl(
                 messages = messages.map { msg -> mapToDto(msg) },
                 maxTokens = maxTokens,
                 temperature = temperature,
-                tools = tools?.ifEmpty { null }
+                tools = tools?.ifEmpty { null },
+                think = think
             )
             val response: ChatResponse = httpClient.post("$effectiveBaseUrl$CHAT_ENDPOINT") {
                 contentType(ContentType.Application.Json)

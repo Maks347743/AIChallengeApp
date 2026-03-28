@@ -17,6 +17,7 @@ kotest = "6.1.4"
 securityCrypto = "1.1.0"
 logback = "1.5.32"
 composeDesktop = "1.8.0"
+shadow = "8.3.8"
 
 [libraries]
 # AndroidX
@@ -89,3 +90,4 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 compose-desktop = { id = "org.jetbrains.compose", version.ref = "composeDesktop" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }

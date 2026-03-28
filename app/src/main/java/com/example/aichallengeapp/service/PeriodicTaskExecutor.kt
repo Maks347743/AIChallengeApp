@@ -8,7 +8,7 @@ import com.example.aichallengeapp.core.database.domain.repository.ChatRepository
 import com.example.aichallengeapp.core.periodictask.domain.repository.PeriodicTaskRepository
 import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClientManager
 import com.example.aichallengeapp.feature.settings.domain.model.resolveEndpoint
-import com.example.aichallengeapp.feature.settings.domain.repository.ChatSettingsRepository
+import com.example.aichallengeapp.feature.settings.domain.repository.AppSettingsRepository
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import timber.log.Timber
@@ -19,7 +19,7 @@ class PeriodicTaskExecutor(
     private val periodicTaskRepository: PeriodicTaskRepository,
     private val chatRepository: ChatRepository,
     private val json: Json,
-    private val settingsRepository: ChatSettingsRepository
+    private val settingsRepository: AppSettingsRepository
 ) {
 
     suspend fun execute(task: PeriodicTask): PeriodicTaskMessage? {
@@ -62,7 +62,7 @@ class PeriodicTaskExecutor(
 
     private suspend fun summarize(task: PeriodicTask, rawResult: String): String {
         return try {
-            val endpoint = settingsRepository.load(task.chatId).resolveEndpoint()
+            val endpoint = settingsRepository.load().resolveEndpoint()
             val messages = listOf(
                 ChatMessage(
                     role = ChatMessage.ROLE_SYSTEM,

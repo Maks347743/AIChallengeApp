@@ -30,13 +30,16 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class McpToolClient(
     private val httpClient: HttpClient,
-    private val mcpBaseUrl: String,
+    private val mcpBaseUrlProvider: () -> String,
     private val json: Json
 ) {
     private val requestIdCounter = AtomicInteger(0)
     private var sessionId: String? = null
     private var cachedTools: List<McpTool>? = null
     private var initialized = false
+    private var lastUsedBaseUrl: String? = null
+
+    private val mcpBaseUrl get() = mcpBaseUrlProvider()
 
     private fun nextRequestId() = requestIdCounter.incrementAndGet()
 
@@ -104,7 +107,14 @@ class McpToolClient(
     }
 
     private suspend fun ensureInitialized() {
+        val currentUrl = mcpBaseUrl
+        if (lastUsedBaseUrl != null && lastUsedBaseUrl != currentUrl) {
+            initialized = false
+            sessionId = null
+            cachedTools = null
+        }
         if (initialized) return
+        lastUsedBaseUrl = currentUrl
         val initRequest = JsonRpcRequest(
             id = nextRequestId(),
             method = "initialize",
@@ -158,6 +168,9 @@ class McpToolClient(
     }
 
     private suspend fun parseResponse(response: HttpResponse): JsonRpcResponse {
+        if (!response.status.isSuccess()) {
+            error("MCP server returned ${response.status.value}: ${response.bodyAsText()}")
+        }
         val contentType = response.contentType()
         return if (contentType?.match(ContentType.Text.EventStream) == true) {
             parseSseResponse(response)

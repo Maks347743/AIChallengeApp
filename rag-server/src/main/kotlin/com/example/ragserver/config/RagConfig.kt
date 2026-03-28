@@ -15,7 +15,8 @@ data class RagConfig(
     val useLocalModel: Boolean = false,
     val ollamaBaseUrl: String = ApiEndpoints.OLLAMA_DEFAULT_BASE_URL,
     val ollamaChatModel: String = ApiEndpoints.OLLAMA_DEFAULT_CHAT_MODEL,
-    val ollamaEmbeddingModel: String = ApiEndpoints.OLLAMA_DEFAULT_EMBEDDING_MODEL
+    val ollamaEmbeddingModel: String = ApiEndpoints.OLLAMA_DEFAULT_EMBEDDING_MODEL,
+    val serverToken: String? = null
 ) {
     companion object {
         const val DEFAULT_TOP_K = 3

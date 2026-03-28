@@ -6,6 +6,6 @@ data class ModelEndpoint(
     val apiKeyOverride: String?
 )
 
-fun ChatSettings.resolveEndpoint(): ModelEndpoint =
+fun AppSettings.resolveEndpoint(): ModelEndpoint =
     if (model == DeepSeekModel.OLLAMA) ModelEndpoint(ollamaModelName, ollamaBaseUrl, "")
     else ModelEndpoint(model.id, null, null)

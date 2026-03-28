@@ -54,3 +54,7 @@ ehthumbs.db
 
 # Kotlin
 *.kotlin_module
+
+# JVM crash dumps
+hs_err_pid*.log
+replay_pid*.log

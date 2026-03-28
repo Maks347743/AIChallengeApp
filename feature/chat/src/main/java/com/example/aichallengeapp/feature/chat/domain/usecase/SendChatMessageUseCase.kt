@@ -15,8 +15,9 @@ class SendChatMessageUseCase(
         model: String,
         tools: List<ToolDefinition>? = null,
         baseUrlOverride: String? = null,
-        apiKeyOverride: String? = null
+        apiKeyOverride: String? = null,
+        think: Boolean? = null
     ): Result<ChatResult> {
-        return chatRepository.sendMessage(messages, maxTokens, temperature, model, tools, baseUrlOverride, apiKeyOverride)
+        return chatRepository.sendMessage(messages, maxTokens, temperature, model, tools, baseUrlOverride, apiKeyOverride, think)
     }
 }

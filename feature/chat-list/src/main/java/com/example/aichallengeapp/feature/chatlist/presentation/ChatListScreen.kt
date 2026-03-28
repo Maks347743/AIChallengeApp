@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -32,7 +33,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +59,7 @@ import org.koin.androidx.compose.koinViewModel
 fun ChatListScreen(
     onNavigateToChat: (chatId: String, branchIndex: Int, profileId: String) -> Unit,
     onNavigateToUserPreferences: () -> Unit,
+    onNavigateToAppSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChatListViewModel = koinViewModel()
 ) {
@@ -95,6 +96,12 @@ fun ChatListScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 actions = {
+                    IconButton(onClick = onNavigateToAppSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = stringResource(R.string.cd_app_settings)
+                        )
+                    }
                     IconButton(onClick = onNavigateToUserPreferences) {
                         Icon(
                             imageVector = Icons.Default.Settings,

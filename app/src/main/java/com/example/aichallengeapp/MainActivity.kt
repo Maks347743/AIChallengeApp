@@ -26,8 +26,10 @@ import com.example.aichallengeapp.feature.chat.ChatRoute
 import com.example.aichallengeapp.feature.chat.presentation.ChatScreen
 import com.example.aichallengeapp.feature.chatlist.ChatListRoute
 import com.example.aichallengeapp.feature.chatlist.presentation.ChatListScreen
+import com.example.aichallengeapp.feature.settings.AppSettingsRoute
 import com.example.aichallengeapp.feature.settings.SettingsRoute
 import com.example.aichallengeapp.feature.settings.presentation.SettingsScreen
+import com.example.aichallengeapp.feature.settings.presentation.appsettings.AppSettingsScreen
 import com.example.aichallengeapp.feature.userpreferences.UserPreferencesRoute
 import com.example.aichallengeapp.feature.userpreferences.UserProfileEditRoute
 import com.example.aichallengeapp.feature.userpreferences.presentation.profileedit.UserProfileEditScreen
@@ -91,6 +93,7 @@ private fun ChatsTab(
                         backStack.add(ChatRoute(chatId, branchIndex, profileId))
                     },
                     onNavigateToUserPreferences = { backStack.add(UserPreferencesRoute) },
+                    onNavigateToAppSettings = { backStack.add(AppSettingsRoute) },
                     modifier = modifier
                 )
             }
@@ -121,6 +124,12 @@ private fun ChatsTab(
             entry<SettingsRoute> { entry ->
                 SettingsScreen(
                     chatId = entry.chatId,
+                    onNavigateBack = { backStack.removeLastOrNull() },
+                    modifier = modifier
+                )
+            }
+            entry<AppSettingsRoute> {
+                AppSettingsScreen(
                     onNavigateBack = { backStack.removeLastOrNull() },
                     modifier = modifier
                 )

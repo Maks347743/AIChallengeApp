@@ -9,6 +9,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -21,7 +22,11 @@ class OllamaEmbeddingService(
     private val client = createHttpClient(timeoutMs = TIMEOUT_EMBEDDING_MS)
 
     @Serializable
-    private data class EmbedRequest(val model: String, val prompt: String)
+    private data class EmbedRequest(
+        val model: String,
+        val prompt: String,
+        @SerialName("keep_alive") val keepAlive: Int = -1
+    )
 
     /**
      * Returns null if Ollama returns an error or unexpected response.

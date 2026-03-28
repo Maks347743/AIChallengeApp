@@ -6,7 +6,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
-const val TIMEOUT_EMBEDDING_MS = 30_000L
+const val TIMEOUT_EMBEDDING_MS = 120_000L
 const val TIMEOUT_QUERY_REWRITE_MS = 60_000L
 const val TIMEOUT_RERANK_MS = 120_000L
 

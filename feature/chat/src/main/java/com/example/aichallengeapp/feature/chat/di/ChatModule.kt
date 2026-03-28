@@ -1,6 +1,7 @@
 package com.example.aichallengeapp.feature.chat.di
 
 import com.example.aichallengeapp.core.database.domain.repository.ChatRepository
+import com.example.aichallengeapp.core.mcp.HomeServerConfig
 import com.example.aichallengeapp.feature.chat.data.mcp.McpServerConfig
 import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClient
 import com.example.aichallengeapp.feature.chat.data.mcp.McpToolClientManager
@@ -33,7 +34,16 @@ private const val LOG_TAG = "KtorClient"
 val chatModule = module {
     single {
         val isDebug: Boolean = get(named("isDebug"))
+        val homeServerConfig: HomeServerConfig = get()
         HttpClient(OkHttp) {
+            engine {
+                addInterceptor { chain ->
+                    val key = homeServerConfig.apiKey
+                    val requestBuilder = chain.request().newBuilder()
+                    if (key.isNotEmpty()) requestBuilder.addHeader("X-API-Key", key)
+                    chain.proceed(requestBuilder.build())
+                }
+            }
             install(HttpTimeout) {
                 requestTimeoutMillis = 600_000
                 connectTimeoutMillis = 15_000
@@ -70,10 +80,18 @@ val chatModule = module {
         )
     }
 
+    single { HomeServerConfig() }
+
     single(named("githubMcpClient")) {
+        val config = get<HomeServerConfig>()
+        val fallbackUrl: String = get(named("mcpBaseUrl"))
         McpToolClient(
             httpClient = get(),
-            mcpBaseUrl = get(named("mcpBaseUrl")),
+            mcpBaseUrlProvider = {
+                config.baseUrl.ifEmpty { fallbackUrl }.let { base ->
+                    if (config.baseUrl.isEmpty()) base else "$base/github-mcp/mcp"
+                }
+            },
             json = get(named("appJson"))
         )
     }
@@ -81,15 +99,21 @@ val chatModule = module {
     single(named("deepwikiMcpClient")) {
         McpToolClient(
             httpClient = get(),
-            mcpBaseUrl = get(named("deepwikiMcpUrl")),
+            mcpBaseUrlProvider = { get(named("deepwikiMcpUrl")) },
             json = get(named("appJson"))
         )
     }
 
     single(named("ragMcpClient")) {
+        val config = get<HomeServerConfig>()
+        val fallbackUrl: String = get(named("ragMcpUrl"))
         McpToolClient(
             httpClient = get(),
-            mcpBaseUrl = get(named("ragMcpUrl")),
+            mcpBaseUrlProvider = {
+                config.baseUrl.ifEmpty { fallbackUrl }.let { base ->
+                    if (config.baseUrl.isEmpty()) base else "$base/rag/mcp"
+                }
+            },
             json = get(named("appJson"))
         )
     }
@@ -132,6 +156,8 @@ val chatModule = module {
             executeToolCallsUseCase = get(),
             getToolDefinitionsUseCase = get(),
             settingsRepository = get(),
+            appSettingsRepository = get(),
+            homeServerConfig = get(),
             sessionManager = get(),
             metricsRepository = get(),
             userProfileRepository = get(),

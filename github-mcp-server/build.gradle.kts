@@ -1,11 +1,17 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.shadow)
     application
 }
 
 application {
     mainClass.set("com.example.githubmcpserver.MainKt")
+}
+
+tasks.shadowJar {
+    mergeServiceFiles()
+    archiveClassifier.set("")
 }
 
 kotlin {
