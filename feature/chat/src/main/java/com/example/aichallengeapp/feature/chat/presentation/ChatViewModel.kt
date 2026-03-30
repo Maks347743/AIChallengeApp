@@ -243,11 +243,21 @@ class ChatViewModel(
     }
 
     private fun sendMessage() {
-        val text = _state.value.inputText.trim()
-        if (text.isEmpty() || _state.value.isLoading) return
+        val rawText = _state.value.inputText.trim()
+        if (rawText.isEmpty() || _state.value.isLoading) return
+
+        val isHelpCommand = rawText.startsWith("/help")
+        val text = if (isHelpCommand) {
+            val question = rawText.removePrefix("/help").trim()
+            if (question.isEmpty()) "Расскажи об общей архитектуре этого проекта." else question
+        } else rawText
+        val helpPrefix = if (isHelpCommand) PromptTemplates.HELP_SYSTEM_PROMPT else ""
 
         val existingMessages = _state.value.messages
-        val userMessage = ChatMessage(role = ChatMessage.ROLE_USER, content = text)
+        // Display message keeps rawText (with /help prefix visible in chat)
+        val userMessage = ChatMessage(role = ChatMessage.ROLE_USER, content = rawText)
+        // cleanUserText is the actual question sent to the API (without /help prefix)
+        val cleanUserText = if (isHelpCommand) text else ""
 
         _state.update {
             it.copy(
@@ -273,11 +283,11 @@ class ChatViewModel(
             val doSummary = settings.summaryEnabled
                 && existingMessages.size > settings.retainedMessageCount
             if (doStickyFacts) {
-                sendMessageWithStickyFacts(settings, appSettings, globalPrefix, existingMessages, userMessage, constraints, tools)
+                sendMessageWithStickyFacts(settings, appSettings, globalPrefix, existingMessages, userMessage, constraints, tools, helpPrefix, cleanUserText)
             } else if (doSummary) {
-                sendMessageWithSummary(settings, appSettings, globalPrefix, existingMessages, userMessage, constraints, tools)
+                sendMessageWithSummary(settings, appSettings, globalPrefix, existingMessages, userMessage, constraints, tools, helpPrefix, cleanUserText)
             } else {
-                sendMessageNormal(settings, appSettings, globalPrefix, constraints, tools)
+                sendMessageNormal(settings, appSettings, globalPrefix, constraints, tools, helpPrefix, cleanUserText)
             }
         }
     }
@@ -286,15 +296,17 @@ class ChatViewModel(
         globalPrefix: String,
         chatPrompt: String,
         constraints: List<Constraint> = emptyList(),
-        taskMemory: String? = null
+        taskMemory: String? = null,
+        helpPrefix: String = ""
     ): String {
         Timber.tag("ChatViewModel").d("System prompt taskMemory: ${taskMemory?.take(100)}")
-        return buildSystemPromptUseCase(
+        val base = buildSystemPromptUseCase(
             globalPrefix = globalPrefix,
             chatPrompt = chatPrompt,
             constraints = constraints,
             taskMemory = taskMemory
         )
+        return if (helpPrefix.isNotEmpty()) "$helpPrefix$base" else base
     }
 
     private suspend fun sendWithSettings(
@@ -440,11 +452,16 @@ class ChatViewModel(
         appSettings: AppSettings,
         globalPrefix: String,
         constraints: List<Constraint> = emptyList(),
-        tools: List<ToolDefinition>? = null
+        tools: List<ToolDefinition>? = null,
+        helpPrefix: String = "",
+        cleanUserText: String = ""
     ) {
         fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory)))
-            addAll(messages)
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory, helpPrefix)))
+            val effectiveMessages = if (cleanUserText.isNotEmpty() && messages.isNotEmpty()) {
+                messages.dropLast(1) + messages.last().copy(content = cleanUserText)
+            } else messages
+            addAll(effectiveMessages)
         }
 
         val result = sendWithSettings(settings, appSettings, buildHistory(_state.value.messages), tools = tools)
@@ -467,7 +484,9 @@ class ChatViewModel(
         existingMessages: List<ChatMessage>,
         userMessage: ChatMessage,
         constraints: List<Constraint> = emptyList(),
-        tools: List<ToolDefinition>? = null
+        tools: List<ToolDefinition>? = null,
+        helpPrefix: String = "",
+        cleanUserText: String = ""
     ) {
         val retainedMessageCount = settings.retainedMessageCount
         val olderMessages = existingMessages.dropLast(retainedMessageCount)
@@ -503,10 +522,12 @@ class ChatViewModel(
 
         val summaryContent = summaryResult.getOrThrow().message
 
+        val effectiveUserMessage = if (cleanUserText.isNotEmpty()) userMessage.copy(content = cleanUserText) else userMessage
+
         fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory, helpPrefix)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_SUMMARY })
-            add(userMessage)
+            add(effectiveUserMessage)
             val toolMessages = messages.drop(existingMessages.size + 1)
             addAll(toolMessages)
         }
@@ -527,7 +548,9 @@ class ChatViewModel(
         existingMessages: List<ChatMessage>,
         userMessage: ChatMessage,
         constraints: List<Constraint> = emptyList(),
-        tools: List<ToolDefinition>? = null
+        tools: List<ToolDefinition>? = null,
+        helpPrefix: String = "",
+        cleanUserText: String = ""
     ) {
         val recentMessages = existingMessages.takeLast(settings.stickyFactsRecentMessages)
         val olderMessages = existingMessages.dropLast(settings.stickyFactsRecentMessages)
@@ -556,11 +579,13 @@ class ChatViewModel(
 
         val factsContent = factsResult.getOrThrow().message
 
+        val effectiveUserMessage = if (cleanUserText.isNotEmpty()) userMessage.copy(content = cleanUserText) else userMessage
+
         fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory)))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory, helpPrefix)))
             add(ChatMessage(role = ChatMessage.ROLE_USER, content = factsContent))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_FACTS })
-            add(userMessage)
+            add(effectiveUserMessage)
             val toolMessages = messages.drop(existingMessages.size + 1)
             addAll(toolMessages)
         }

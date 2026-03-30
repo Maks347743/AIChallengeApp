@@ -115,7 +115,7 @@ class ExecuteToolCallsUseCase(
 
     companion object {
         private const val TAG = "ToolExecution"
-        private const val MAX_TOOL_RESULT_CHARS = 2000
+        private const val MAX_TOOL_RESULT_CHARS = 8000
         const val CITATION_MARKER = "---ЦИТАТЫ---"
     }
 }

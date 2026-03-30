@@ -34,19 +34,24 @@ import androidx.compose.ui.unit.dp
 import com.example.ragserver.data.Document
 import com.example.ragserver.data.DocumentStorage
 import com.example.ragserver.deepwiki.DeepWikiImportService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.FileDialog
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 import java.awt.Frame
 import java.io.File
 import java.io.FilenameFilter
+import javax.swing.JFileChooser
 
 @Composable
 fun DocumentsScreen(documentStorage: DocumentStorage, deepWikiImportService: DeepWikiImportService) {
     var documents by remember { mutableStateOf(documentStorage.loadAll()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showDeepWikiDialog by remember { mutableStateOf(false) }
+    var showFolderImportDialog by remember { mutableStateOf(false) }
+    var folderImportPath by remember { mutableStateOf<File?>(null) }
     var prefillFromFile by remember { mutableStateOf<Triple<String, String, String>?>(null) }
 
     Box(Modifier.fillMaxSize()) {
@@ -74,6 +79,15 @@ fun DocumentsScreen(documentStorage: DocumentStorage, deepWikiImportService: Dee
         ) {
             OutlinedButton(onClick = { showDeepWikiDialog = true }) {
                 Text("Import DeepWiki")
+            }
+            OutlinedButton(onClick = {
+                val folder = pickFolder()
+                if (folder != null) {
+                    folderImportPath = folder
+                    showFolderImportDialog = true
+                }
+            }) {
+                Text("Import Folder")
             }
             OutlinedButton(onClick = {
                 val file = pickFile()
@@ -111,6 +125,18 @@ fun DocumentsScreen(documentStorage: DocumentStorage, deepWikiImportService: Dee
             importService = deepWikiImportService,
             onDismiss = {
                 showDeepWikiDialog = false
+                documents = documentStorage.loadAll()
+            }
+        )
+    }
+
+    if (showFolderImportDialog && folderImportPath != null) {
+        FolderImportDialog(
+            folder = folderImportPath!!,
+            documentStorage = documentStorage,
+            onDismiss = {
+                showFolderImportDialog = false
+                folderImportPath = null
                 documents = documentStorage.loadAll()
             }
         )
@@ -209,6 +235,134 @@ private fun DeepWikiImportDialog(
             }
         }
     )
+}
+
+@Composable
+private fun FolderImportDialog(
+    folder: File,
+    documentStorage: DocumentStorage,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val logs = remember { mutableStateListOf<String>() }
+    val listState = rememberLazyListState()
+    var isImporting by remember { mutableStateOf(false) }
+    var isDone by remember { mutableStateOf(false) }
+
+    LaunchedEffect(logs.size) {
+        if (logs.isNotEmpty()) listState.animateScrollToItem(logs.size - 1)
+    }
+
+    LaunchedEffect(Unit) {
+        isImporting = true
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                val extensions = setOf("md", "txt", "rst")
+                val files = folder.walkTopDown()
+                    .filter { it.isFile && it.extension.lowercase() in extensions }
+                    .toList()
+
+                logs.add("Found ${files.size} files in ${folder.absolutePath}")
+
+                if (files.isEmpty()) {
+                    logs.add("No .md, .txt or .rst files found.")
+                    isImporting = false
+                    isDone = true
+                    return@withContext
+                }
+
+                val existingBySource = documentStorage.loadAll().associateBy { it.source }
+                var imported = 0
+                var updated = 0
+
+                files.forEach { file ->
+                    val source = file.absolutePath
+                    val existing = existingBySource[source]
+                    if (existing != null) {
+                        documentStorage.delete(existing.id)
+                        updated++
+                    } else {
+                        imported++
+                    }
+                    documentStorage.create(
+                        title = file.nameWithoutExtension,
+                        source = source,
+                        content = file.readText()
+                    )
+                    logs.add("${if (existing != null) "Updated" else "Imported"}: ${file.name}")
+                }
+
+                logs.add("Done. $imported new, $updated updated. Go to Indexing tab to vectorize.")
+            }
+            isImporting = false
+            isDone = true
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!isImporting) onDismiss() },
+        title = { Text("Import Folder") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    folder.absolutePath,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                if (logs.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Logs:", style = MaterialTheme.typography.labelMedium)
+                        OutlinedButton(
+                            onClick = {
+                                val selection = StringSelection(logs.joinToString("\n"))
+                                Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
+                            }
+                        ) { Text("Copy") }
+                    }
+                    Card(Modifier.fillMaxWidth().height(200.dp)) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize().padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            items(logs) { log ->
+                                Text(log, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+                if (isImporting) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.padding(4.dp))
+                        Text("Importing...", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss, enabled = isDone) { Text("Done") }
+        },
+        dismissButton = {
+            if (!isImporting) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        }
+    )
+}
+
+private fun pickFolder(): File? {
+    val chooser = JFileChooser()
+    chooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+    chooser.dialogTitle = "Select a folder to import"
+    chooser.isAcceptAllFileFilterUsed = false
+    val result = chooser.showOpenDialog(null)
+    return if (result == JFileChooser.APPROVE_OPTION) chooser.selectedFile else null
 }
 
 private fun pickFile(): File? {

@@ -2,6 +2,7 @@ package com.example.ragserver
 
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import com.example.ragserver.chunking.StructuralChunkingStrategy
 import com.example.ragserver.config.FileConfigRepository
 import com.example.ragserver.data.ChunkStorage
 import com.example.ragserver.data.DocumentStorage
@@ -35,14 +36,80 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.nio.file.Paths
+import kotlin.io.path.isDirectory
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.name
+import kotlin.io.path.readText
+import kotlin.io.path.walk
+
 private const val SERVER_PORT = 3002
 
 fun main(args: Array<String>) {
-    if (args.contains("--headless")) {
-        startHeadless()
-    } else {
-        startWithUi()
+    val importIndex = args.indexOf("--import")
+    when {
+        importIndex >= 0 -> {
+            val folderPath = args.getOrNull(importIndex + 1)
+                ?: error("--import requires a folder path argument")
+            startImport(folderPath)
+        }
+        args.contains("--headless") -> startHeadless()
+        else -> startWithUi()
     }
+}
+
+private fun startImport(folderPath: String) {
+    val folder = Paths.get(folderPath)
+    require(folder.isDirectory()) { "Path is not a directory: $folderPath" }
+
+    val paths = RagServerPaths.fromHome()
+    RagServerPaths.initDirectories(paths)
+
+    val configRepo = FileConfigRepository(paths.configFile, sharedJson)
+    val settingsState = SettingsState(configRepo)
+
+    val documentStorage = DocumentStorage(paths.docs)
+    val chunkStorage = ChunkStorage(paths.chunks, sharedJson)
+    val vectorIndex = VectorIndex()
+    val embeddingService = OllamaEmbeddingService(
+        baseUrlProvider = { settingsState.ollamaBaseUrl },
+        modelProvider = { settingsState.ollamaEmbeddingModel }
+    )
+    val indexingService = IndexingService(
+        documentStorage = documentStorage,
+        chunkStorage = chunkStorage,
+        embeddingService = embeddingService,
+        vectorIndex = vectorIndex,
+        indexPath = paths.indexBin
+    )
+
+    vectorIndex.load(paths.indexBin)
+
+    val extensions = setOf("md", "txt", "rst")
+    val files = folder.walk()
+        .filter { it.isRegularFile() && it.name.substringAfterLast('.').lowercase() in extensions }
+        .toList()
+
+    println("Found ${files.size} files in $folderPath")
+
+    // Deduplication: remove existing docs with the same source path
+    val existingBySource = documentStorage.loadAll().associateBy { it.source }
+
+    files.forEach { file ->
+        val source = file.toAbsolutePath().toString()
+        val title = file.name
+        existingBySource[source]?.let { documentStorage.delete(it.id) }
+        val content = file.readText()
+        documentStorage.create(title = title, source = source, content = content)
+        println("Imported: $title")
+    }
+
+    println("Starting indexing...")
+    runBlocking {
+        indexingService.runIndexing(StructuralChunkingStrategy())
+        indexingService.logs.forEach { println(it) }
+    }
+    println("Import complete. ${indexingService.indexedChunks} chunks indexed.")
 }
 
 private fun buildMcpHandler(settingsState: SettingsState): RagMcpRequestHandler {
