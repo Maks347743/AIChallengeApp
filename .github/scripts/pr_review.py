@@ -286,8 +286,8 @@ def _extract_timestamp(body: str) -> str:
 
 def _extract_current_review(body: str) -> str:
     """Strip hidden markers and return the current review section (before old-reviews block)."""
-    content = body
-    content = content.replace(AI_COMMENT_MARKER + "\n", "")
+    parts = body.split(AI_COMMENT_MARKER, 1)
+    content = parts[1] if len(parts) > 1 else body
     content = VERSION_RE.sub("", content)
     content = TIMESTAMP_RE.sub("", content)
     if OLD_REVIEWS_MARKER in content:
