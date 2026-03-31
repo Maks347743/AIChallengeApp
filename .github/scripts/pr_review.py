@@ -12,6 +12,7 @@ import re
 import sys
 import json
 import time
+import datetime
 
 import httpx
 import numpy as np
@@ -44,6 +45,9 @@ DOCS_DIR = "docs"
 MAX_DIFF_CHARS = 50_000
 TOP_K_CHUNKS = 3
 AI_COMMENT_MARKER = "<!-- ai-pr-review -->"
+OLD_REVIEWS_MARKER = "<!-- old-reviews -->"
+VERSION_RE = re.compile(r"<!-- version:(\d+) -->")
+TIMESTAMP_RE = re.compile(r"<!-- timestamp:([^>]+) -->")
 
 GITHUB_API = "https://api.github.com"
 DEEPSEEK_API = os.getenv("DEEPSEEK_API", "https://api.deepseek.com/v1/chat/completions")
@@ -249,8 +253,8 @@ def call_deepseek(system_prompt: str, user_prompt: str) -> str:
 # Step 4: Post PR comment
 # ---------------------------------------------------------------------------
 
-def find_existing_ai_comment() -> int | None:
-    """Return comment ID of previous AI review comment, or None."""
+def find_existing_ai_comment() -> dict | None:
+    """Return existing AI review comment as {id, body}, or None."""
     page = 1
     with httpx.Client(timeout=30) as client:
         while True:
@@ -265,31 +269,100 @@ def find_existing_ai_comment() -> int | None:
                 break
             for comment in comments:
                 if AI_COMMENT_MARKER in comment.get("body", ""):
-                    return comment["id"]
+                    return {"id": comment["id"], "body": comment["body"]}
             page += 1
     return None
 
 
-def post_or_update_comment(body: str) -> None:
-    full_body = f"{AI_COMMENT_MARKER}\n{body}"
-    existing_id = find_existing_ai_comment()
+def _extract_version(body: str) -> int:
+    m = VERSION_RE.search(body)
+    return int(m.group(1)) if m else 1
 
-    with httpx.Client(timeout=30) as client:
-        if existing_id:
-            print(f"  Updating existing AI review comment #{existing_id}...")
+
+def _extract_timestamp(body: str) -> str:
+    m = TIMESTAMP_RE.search(body)
+    return m.group(1) if m else "unknown"
+
+
+def _extract_current_review(body: str) -> str:
+    """Strip hidden markers and return the current review section (before old-reviews block)."""
+    content = body
+    content = content.replace(AI_COMMENT_MARKER + "\n", "")
+    content = VERSION_RE.sub("", content)
+    content = TIMESTAMP_RE.sub("", content)
+    if OLD_REVIEWS_MARKER in content:
+        content = content[:content.index(OLD_REVIEWS_MARKER)]
+    return content.strip()
+
+
+def _extract_old_reviews(body: str) -> str:
+    """Return the accumulated old-reviews section from the existing comment."""
+    if OLD_REVIEWS_MARKER not in body:
+        return ""
+    return body[body.index(OLD_REVIEWS_MARKER) + len(OLD_REVIEWS_MARKER):].strip()
+
+
+def post_or_update_comment(review_text: str, rag_footer: str) -> None:
+    now = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    existing = find_existing_ai_comment()
+
+    if existing:
+        old_version = _extract_version(existing["body"])
+        old_timestamp = _extract_timestamp(existing["body"])
+        new_version = old_version + 1
+        old_review_content = _extract_current_review(existing["body"])
+        accumulated_old = _extract_old_reviews(existing["body"])
+
+        old_block = (
+            f"<details>\n"
+            f"<summary>~~v{old_version} · {old_timestamp}~~</summary>\n\n"
+            f"<del>\n\n"
+            f"{old_review_content}\n\n"
+            f"</del>\n\n"
+            f"</details>"
+        )
+        all_old = f"{old_block}\n\n{accumulated_old}".strip()
+
+        full_body = (
+            f"{AI_COMMENT_MARKER}\n"
+            f"<!-- version:{new_version} -->\n"
+            f"<!-- timestamp:{now} -->\n\n"
+            f"## AI Code Review — v{new_version}\n"
+            f"_{now}_\n\n"
+            f"{review_text}\n\n"
+            f"---\n"
+            f"_{rag_footer}_\n\n"
+            f"{OLD_REVIEWS_MARKER}\n\n"
+            f"{all_old}"
+        )
+        print(f"  Updating existing AI review comment #{existing['id']} → v{new_version}...")
+        with httpx.Client(timeout=30) as client:
             resp = client.patch(
-                f"{GITHUB_API}/repos/{REPO}/issues/comments/{existing_id}",
+                f"{GITHUB_API}/repos/{REPO}/issues/comments/{existing['id']}",
                 headers=github_headers(),
                 json={"body": full_body},
             )
-        else:
-            print("  Posting new AI review comment...")
+            resp.raise_for_status()
+    else:
+        full_body = (
+            f"{AI_COMMENT_MARKER}\n"
+            f"<!-- version:1 -->\n"
+            f"<!-- timestamp:{now} -->\n\n"
+            f"## AI Code Review — v1\n"
+            f"_{now}_\n\n"
+            f"{review_text}\n\n"
+            f"---\n"
+            f"_{rag_footer}_"
+        )
+        print("  Posting new AI review comment (v1)...")
+        with httpx.Client(timeout=30) as client:
             resp = client.post(
                 f"{GITHUB_API}/repos/{REPO}/issues/{PR_NUMBER}/comments",
                 headers=github_headers(),
                 json={"body": full_body},
             )
-        resp.raise_for_status()
+            resp.raise_for_status()
+
     print("  Done.")
 
 
@@ -347,13 +420,8 @@ def main():
     # Step 4: Post comment
     print("\nPosting review comment to GitHub...")
     retrieved_sections = ", ".join(f"{c['source']}#{c['heading']}" for c in relevant_chunks)
-    comment_body = (
-        f"## AI Code Review\n\n"
-        f"{review_text}\n\n"
-        f"---\n"
-        f"_Generated by DeepSeek · RAG rules applied: {retrieved_sections}_"
-    )
-    post_or_update_comment(comment_body)
+    rag_footer = f"Generated by DeepSeek · RAG rules applied: {retrieved_sections}"
+    post_or_update_comment(review_text, rag_footer)
 
     print("\n=== Review complete ===\n")
 
