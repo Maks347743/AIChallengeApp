@@ -12,7 +12,6 @@ import re
 import sys
 import json
 import time
-import math
 
 import httpx
 import numpy as np
@@ -21,21 +20,36 @@ import numpy as np
 # Configuration
 # ---------------------------------------------------------------------------
 
-GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
-DEEPSEEK_API_KEY = os.environ["DEEPSEEK_API_KEY"]
-JINA_API_KEY = os.environ["JINA_API_KEY"]
-REPO = os.environ["REPO"]                  # e.g. "owner/repo-name"
-PR_NUMBER = int(os.environ["PR_NUMBER"])
+def _require_env(key: str) -> str:
+    value = os.getenv(key)
+    if not value:
+        print(f"ERROR: Required environment variable '{key}' is not set.", file=sys.stderr)
+        sys.exit(1)
+    return value
 
-REVIEW_RULES_PATH = "docs/review-rules.md"
+
+GITHUB_TOKEN = _require_env("GITHUB_TOKEN")
+DEEPSEEK_API_KEY = _require_env("DEEPSEEK_API_KEY")
+JINA_API_KEY = _require_env("JINA_API_KEY")
+REPO = _require_env("REPO")                  # e.g. "owner/repo-name"
+
+_pr_number_raw = _require_env("PR_NUMBER")
+try:
+    PR_NUMBER = int(_pr_number_raw)
+except ValueError:
+    print(f"ERROR: PR_NUMBER must be an integer, got: '{_pr_number_raw}'", file=sys.stderr)
+    sys.exit(1)
+
+DOCS_DIR = "docs"
 MAX_DIFF_CHARS = 50_000
 TOP_K_CHUNKS = 3
 AI_COMMENT_MARKER = "<!-- ai-pr-review -->"
 
 GITHUB_API = "https://api.github.com"
-DEEPSEEK_API = "https://api.deepseek.com/v1/chat/completions"
+DEEPSEEK_API = os.getenv("DEEPSEEK_API", "https://api.deepseek.com/v1/chat/completions")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 JINA_EMBEDDINGS_API = "https://api.jina.ai/v1/embeddings"
-JINA_MODEL = "jina-embeddings-v3"
+JINA_MODEL = os.getenv("JINA_MODEL", "jina-embeddings-v3")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -113,11 +127,8 @@ def fetch_pr_diff() -> str:
 # Step 2: RAG — chunk docs, embed, retrieve top-K
 # ---------------------------------------------------------------------------
 
-def load_and_chunk_rules(path: str) -> list[dict]:
-    """Split review-rules.md into chunks by ## headings."""
-    with open(path, encoding="utf-8") as f:
-        content = f.read()
-
+def _chunk_markdown(content: str, source: str) -> list[dict]:
+    """Split a markdown file into chunks by ## headings."""
     chunks = []
     parts = re.split(r"(?=^## )", content, flags=re.MULTILINE)
     for part in parts:
@@ -126,10 +137,31 @@ def load_and_chunk_rules(path: str) -> list[dict]:
             continue
         heading_match = re.match(r"^## (.+)", part)
         heading = heading_match.group(1).strip() if heading_match else "General"
-        chunks.append({"heading": heading, "text": part})
-
-    print(f"  Loaded {len(chunks)} RAG chunks from {path}")
+        chunks.append({"heading": heading, "source": source, "text": part})
     return chunks
+
+
+def load_and_chunk_docs(docs_dir: str) -> list[dict]:
+    """Load all .md files from docs_dir recursively and chunk by ## headings."""
+    if not os.path.isdir(docs_dir):
+        print(f"WARNING: Docs directory '{docs_dir}' not found. Proceeding without RAG context.", file=sys.stderr)
+        return []
+
+    all_chunks = []
+    for root, _, files in os.walk(docs_dir):
+        for filename in sorted(files):
+            if not filename.endswith(".md"):
+                continue
+            filepath = os.path.join(root, filename)
+            with open(filepath, encoding="utf-8") as f:
+                content = f.read()
+            rel_path = os.path.relpath(filepath, docs_dir)
+            file_chunks = _chunk_markdown(content, source=rel_path)
+            all_chunks.extend(file_chunks)
+            print(f"  Loaded {len(file_chunks)} chunks from docs/{rel_path}")
+
+    print(f"  Total: {len(all_chunks)} RAG chunks from {docs_dir}/")
+    return all_chunks
 
 
 def embed_texts(texts: list[str]) -> np.ndarray:
@@ -194,7 +226,7 @@ def call_deepseek(system_prompt: str, user_prompt: str) -> str:
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "deepseek-chat",
+        "model": DEEPSEEK_MODEL,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -282,7 +314,7 @@ def main():
 
     # Step 2: RAG
     print("Running RAG pipeline...")
-    chunks = load_and_chunk_rules(REVIEW_RULES_PATH)
+    chunks = load_and_chunk_docs(DOCS_DIR)
     query = (
         f"Code review for changes in: {', '.join(changed_files[:10])}. "
         f"Diff preview: {pr_diff[:500]}"
@@ -314,7 +346,7 @@ def main():
 
     # Step 4: Post comment
     print("\nPosting review comment to GitHub...")
-    retrieved_sections = ", ".join(c["heading"] for c in relevant_chunks)
+    retrieved_sections = ", ".join(f"{c['source']}#{c['heading']}" for c in relevant_chunks)
     comment_body = (
         f"## AI Code Review\n\n"
         f"{review_text}\n\n"
