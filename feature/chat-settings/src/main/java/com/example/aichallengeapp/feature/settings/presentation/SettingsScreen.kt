@@ -279,6 +279,28 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_card_spacing)))
 
+            // Support section
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.label_support_mode),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = settings.supportEnabled,
+                            onCheckedChange = { viewModel.onIntent(SettingsIntent.ToggleSupport(it)) }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.settings_card_spacing)))
+
             // Sticky Facts Mode section
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(dimensionResource(R.dimen.settings_card_content_padding))) {

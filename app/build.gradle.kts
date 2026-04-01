@@ -28,6 +28,7 @@ android {
         buildConfigField("String", "MCP_SERVER_URL", "\"http://10.0.2.2:3001/mcp\"")
         buildConfigField("String", "DEEPWIKI_MCP_URL", "\"https://mcp.deepwiki.com/mcp\"")
         buildConfigField("String", "RAG_MCP_URL", "\"http://10.0.2.2:3002/mcp\"")
+        buildConfigField("String", "SUPPORT_MCP_URL", "\"http://10.0.2.2:3003/mcp\"")
         buildConfigField("String", "HOME_SERVER_API_KEY",
             "\"${localProperties.getProperty("HOME_SERVER_API_KEY", "")}\"")
     }

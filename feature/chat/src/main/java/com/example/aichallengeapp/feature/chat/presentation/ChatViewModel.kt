@@ -277,6 +277,7 @@ class ChatViewModel(
             val constraints = profile?.constraints ?: emptyList()
             val tools = cachedToolDefinitions
                 ?.let { if (settings.ragEnabled) it else it.filter { t -> t.function.name != "retrieve" } }
+                ?.let { if (settings.supportEnabled) it else it.filter { t -> t.function.name !in PromptTemplates.SUPPORT_TOOL_NAMES } }
 
             val doStickyFacts = settings.stickyFactsEnabled
                 && existingMessages.size > settings.stickyFactsRecentMessages
@@ -297,14 +298,16 @@ class ChatViewModel(
         chatPrompt: String,
         constraints: List<Constraint> = emptyList(),
         taskMemory: String? = null,
-        helpPrefix: String = ""
+        helpPrefix: String = "",
+        supportEnabled: Boolean = true
     ): String {
         Timber.tag("ChatViewModel").d("System prompt taskMemory: ${taskMemory?.take(100)}")
         val base = buildSystemPromptUseCase(
             globalPrefix = globalPrefix,
             chatPrompt = chatPrompt,
             constraints = constraints,
-            taskMemory = taskMemory
+            taskMemory = taskMemory,
+            supportEnabled = supportEnabled
         )
         return if (helpPrefix.isNotEmpty()) "$helpPrefix$base" else base
     }
@@ -457,7 +460,7 @@ class ChatViewModel(
         cleanUserText: String = ""
     ) {
         fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory, helpPrefix)))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory, helpPrefix, settings.supportEnabled)))
             val effectiveMessages = if (cleanUserText.isNotEmpty() && messages.isNotEmpty()) {
                 messages.dropLast(1) + messages.last().copy(content = cleanUserText)
             } else messages
@@ -525,7 +528,7 @@ class ChatViewModel(
         val effectiveUserMessage = if (cleanUserText.isNotEmpty()) userMessage.copy(content = cleanUserText) else userMessage
 
         fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory, helpPrefix)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = "${effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory, helpPrefix, settings.supportEnabled)}\n\nКонтекст предыдущих сообщений:\n$summaryContent"))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_SUMMARY })
             add(effectiveUserMessage)
             val toolMessages = messages.drop(existingMessages.size + 1)
@@ -582,7 +585,7 @@ class ChatViewModel(
         val effectiveUserMessage = if (cleanUserText.isNotEmpty()) userMessage.copy(content = cleanUserText) else userMessage
 
         fun buildHistory(messages: List<ChatMessage>): List<ChatMessage> = buildList {
-            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory, helpPrefix)))
+            add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory, helpPrefix, settings.supportEnabled)))
             add(ChatMessage(role = ChatMessage.ROLE_USER, content = factsContent))
             addAll(recentMessages.filter { it.role != ChatMessage.ROLE_FACTS })
             add(effectiveUserMessage)
@@ -623,7 +626,7 @@ class ChatViewModel(
             _state.update { it.copy(messages = it.messages + assistantMsg + violationNotice) }
 
             val retryHistory = buildList {
-                add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory)))
+                add(ChatMessage(role = ChatMessage.ROLE_SYSTEM, content = effectiveSystemPrompt(globalPrefix, settings.systemPrompt, constraints, _state.value.taskMemory, supportEnabled = settings.supportEnabled)))
                 addAll(_state.value.messages)
             }
             val retryResult = sendWithSettings(settings, appSettings, retryHistory)

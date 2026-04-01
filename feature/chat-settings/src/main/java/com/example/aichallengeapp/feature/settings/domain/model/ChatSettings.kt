@@ -22,4 +22,5 @@ data class ChatSettings(
     val stickyFactsEnabled: Boolean = false,
     val stickyFactsRecentMessages: Int = DEFAULT_STICKY_FACTS_RECENT_MESSAGES,
     val ragEnabled: Boolean = true,
+    val supportEnabled: Boolean = true,
 )

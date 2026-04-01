@@ -17,6 +17,7 @@
     <string name="label_sticky_facts_mode">Sticky Facts</string>
     <string name="label_sticky_facts_recent_messages">Сообщений без обработки</string>
     <string name="label_rag_mode">RAG (поиск по базе знаний)</string>
+    <string name="label_support_mode">Поддержка пользователей (FAQ + CRM)</string>
     <string name="title_app_settings">Глобальные настройки</string>
     <string name="label_ollama_model_name">Название модели (напр. qwen3:30b)</string>
     <string name="label_server_base_url">Server Base URL</string>

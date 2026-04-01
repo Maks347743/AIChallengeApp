@@ -33,6 +33,7 @@ val appModule = module {
     single(named("mcpBaseUrl")) { BuildConfig.MCP_SERVER_URL }
     single(named("deepwikiMcpUrl")) { BuildConfig.DEEPWIKI_MCP_URL }
     single(named("ragMcpUrl")) { BuildConfig.RAG_MCP_URL }
+    single(named("supportMcpUrl")) { BuildConfig.SUPPORT_MCP_URL }
     single<PeriodicTaskServiceController> { PeriodicTaskServiceControllerImpl(get()) }
     single { PeriodicTaskManager(get(), get()) }
 

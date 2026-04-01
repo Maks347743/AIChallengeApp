@@ -118,12 +118,21 @@ val chatModule = module {
         )
     }
 
+    single(named("supportMcpClient")) {
+        McpToolClient(
+            httpClient = get(),
+            mcpBaseUrlProvider = { get(named("supportMcpUrl")) },
+            json = get(named("appJson"))
+        )
+    }
+
     single {
         McpToolClientManager(
             listOf(
                 McpServerConfig("GitHub MCP", get(named("githubMcpClient"))),
                 McpServerConfig("DeepWiki", get(named("deepwikiMcpClient"))),
-                McpServerConfig("RAG", get(named("ragMcpClient")))
+                McpServerConfig("RAG", get(named("ragMcpClient"))),
+                McpServerConfig("Support", get(named("supportMcpClient")))
             )
         )
     }

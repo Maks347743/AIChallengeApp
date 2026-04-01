@@ -76,6 +76,7 @@ class SettingsViewModel(
                     ?.let { v -> updateSettings { copy(stickyFactsRecentMessages = v) } }
             }
             is SettingsIntent.ToggleRag -> updateSettings { copy(ragEnabled = intent.enabled) }
+            is SettingsIntent.ToggleSupport -> updateSettings { copy(supportEnabled = intent.enabled) }
         }
     }
 

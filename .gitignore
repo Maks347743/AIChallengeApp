@@ -58,3 +58,6 @@ ehthumbs.db
 # JVM crash dumps
 hs_err_pid*.log
 replay_pid*.log
+
+# Support MCP Server runtime data
+support-mcp-server/build/libs/data/

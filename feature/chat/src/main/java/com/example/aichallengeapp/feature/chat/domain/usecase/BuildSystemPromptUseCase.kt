@@ -8,9 +8,11 @@ class BuildSystemPromptUseCase {
         globalPrefix: String,
         chatPrompt: String,
         constraints: List<Constraint>,
-        taskMemory: String? = null
+        taskMemory: String? = null,
+        supportEnabled: Boolean = true
     ): String {
         val parts = buildList {
+            if (supportEnabled) add(PromptTemplates.SUPPORT_SYSTEM_PROMPT)
             add(PromptTemplates.BASE_SYSTEM_PROMPT)
             if (globalPrefix.isNotBlank()) add(globalPrefix)
             if (!taskMemory.isNullOrBlank()) add("## Память задачи\n$taskMemory")
