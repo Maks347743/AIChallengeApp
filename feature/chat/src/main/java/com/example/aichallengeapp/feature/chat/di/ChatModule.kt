@@ -126,13 +126,28 @@ val chatModule = module {
         )
     }
 
+    single(named("filesystemMcpClient")) {
+        val config = get<HomeServerConfig>()
+        val fallbackUrl: String = get(named("filesystemMcpUrl"))
+        McpToolClient(
+            httpClient = get(),
+            mcpBaseUrlProvider = {
+                config.baseUrl.ifEmpty { fallbackUrl }.let { base ->
+                    if (config.baseUrl.isEmpty()) base else "$base/filesystem/mcp"
+                }
+            },
+            json = get(named("appJson"))
+        )
+    }
+
     single {
         McpToolClientManager(
             listOf(
                 McpServerConfig("GitHub MCP", get(named("githubMcpClient"))),
                 McpServerConfig("DeepWiki", get(named("deepwikiMcpClient"))),
                 McpServerConfig("RAG", get(named("ragMcpClient"))),
-                McpServerConfig("Support", get(named("supportMcpClient")))
+                McpServerConfig("Support", get(named("supportMcpClient"))),
+                McpServerConfig("Filesystem", get(named("filesystemMcpClient")))
             )
         )
     }

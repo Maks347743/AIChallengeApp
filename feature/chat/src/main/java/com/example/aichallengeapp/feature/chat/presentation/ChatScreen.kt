@@ -757,10 +757,15 @@ private fun ToolCallBubble(content: String, modifier: Modifier = Modifier) {
     }
 }
 
+private const val DIFF_PREFIX = "DIFF:\n"
+
 @Composable
 private fun ToolResultBubble(content: String, modifier: Modifier = Modifier) {
+    val isDiff = content.startsWith(DIFF_PREFIX)
     var expanded by remember { mutableStateOf(false) }
     val preview = remember(content) { content.lineSequence().first().take(60) }
+    val isDark = isSystemInDarkTheme()
+
     Column(
         modifier = modifier
             .padding(horizontal = 16.dp)
@@ -771,9 +776,9 @@ private fun ToolResultBubble(content: String, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("📄", style = MaterialTheme.typography.bodySmall)
+            Text(if (isDiff) "📝" else "📄", style = MaterialTheme.typography.bodySmall)
             Text(
-                text = if (expanded) "Tool result" else preview,
+                text = if (expanded) (if (isDiff) "Diff result" else "Tool result") else preview,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
@@ -788,13 +793,41 @@ private fun ToolResultBubble(content: String, modifier: Modifier = Modifier) {
             }
         }
         if (expanded) {
-            SelectionContainer {
-                Text(
-                    text = content,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+            if (isDiff) {
+                val diffBody = content.removePrefix(DIFF_PREFIX)
+                SelectionContainer {
+                    Column(modifier = Modifier.padding(top = 4.dp)) {
+                        diffBody.lines().forEach { line ->
+                            val lineColor = when {
+                                line.startsWith("+++") || line.startsWith("---") ->
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                line.startsWith("+") ->
+                                    if (isDark) Color(0xFFA5D6A7) else Color(0xFF2E7D32)
+                                line.startsWith("-") ->
+                                    if (isDark) Color(0xFFEF9A9A) else Color(0xFFC62828)
+                                line.startsWith("@@") ->
+                                    MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                            Text(
+                                text = line,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                ),
+                                color = lineColor
+                            )
+                        }
+                    }
+                }
+            } else {
+                SelectionContainer {
+                    Text(
+                        text = content,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
             }
         }
     }
