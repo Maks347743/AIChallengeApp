@@ -352,22 +352,27 @@ def analyze_and_generate_tests(
 # Step 4: Write test files
 # ---------------------------------------------------------------------------
 
-# Map from matcher function name to its full import path
-_KOTEST_IMPORTS: dict[str, str] = {
-    "shouldBe":                    "io.kotest.matchers.shouldBe",
-    "shouldNotBe":                 "io.kotest.matchers.shouldNotBe",
-    "shouldBeNull":                "io.kotest.matchers.nulls.shouldBeNull",
-    "shouldNotBeNull":             "io.kotest.matchers.nulls.shouldNotBeNull",
-    "shouldContain":               "io.kotest.matchers.string.shouldContain",
-    "shouldNotContain":            "io.kotest.matchers.string.shouldNotContain",
-    "shouldBeEmpty":               "io.kotest.matchers.collections.shouldBeEmpty",
-    "shouldHaveSize":              "io.kotest.matchers.collections.shouldHaveSize",
-    "shouldContainExactly":        "io.kotest.matchers.collections.shouldContainExactly",
-    "shouldBeGreaterThan":         "io.kotest.matchers.ints.shouldBeGreaterThan",
-    "shouldBeLessThan":            "io.kotest.matchers.ints.shouldBeLessThan",
-    "shouldBeLessThanOrEqualTo":   "io.kotest.matchers.ints.shouldBeLessThanOrEqualTo",
-    "shouldBeGreaterThanOrEqualTo":"io.kotest.matchers.ints.shouldBeGreaterThanOrEqualTo",
-}
+# List of (matcher_name, import_path) — multiple entries per name are allowed
+# (Kotlin resolves overloads by receiver type when both are imported)
+_KOTEST_IMPORTS: list[tuple[str, str]] = [
+    ("shouldBe",                    "io.kotest.matchers.shouldBe"),
+    ("shouldNotBe",                 "io.kotest.matchers.shouldNotBe"),
+    ("shouldBeNull",                "io.kotest.matchers.nulls.shouldBeNull"),
+    ("shouldNotBeNull",             "io.kotest.matchers.nulls.shouldNotBeNull"),
+    # shouldContain: import both — Kotlin picks the right overload by receiver type
+    ("shouldContain",               "io.kotest.matchers.string.shouldContain"),
+    ("shouldContain",               "io.kotest.matchers.collections.shouldContain"),
+    ("shouldNotContain",            "io.kotest.matchers.string.shouldNotContain"),
+    ("shouldNotContain",            "io.kotest.matchers.collections.shouldNotContain"),
+    ("shouldBeEmpty",               "io.kotest.matchers.collections.shouldBeEmpty"),
+    ("shouldBeEmpty",               "io.kotest.matchers.string.shouldBeEmpty"),
+    ("shouldHaveSize",              "io.kotest.matchers.collections.shouldHaveSize"),
+    ("shouldContainExactly",        "io.kotest.matchers.collections.shouldContainExactly"),
+    ("shouldBeGreaterThan",         "io.kotest.matchers.ints.shouldBeGreaterThan"),
+    ("shouldBeLessThan",            "io.kotest.matchers.ints.shouldBeLessThan"),
+    ("shouldBeLessThanOrEqualTo",   "io.kotest.matchers.ints.shouldBeLessThanOrEqualTo"),
+    ("shouldBeGreaterThanOrEqualTo","io.kotest.matchers.ints.shouldBeGreaterThanOrEqualTo"),
+]
 
 # Matchers that are not valid — replace with safe alternatives
 _INVALID_MATCHERS: dict[str, str] = {
@@ -399,9 +404,9 @@ def fix_kotlin_test_content(content: str) -> str:
     # Collect existing imports
     existing_imports = set(re.findall(r"^import (.+)$", content, re.MULTILINE))
 
-    # Find which matchers are used in the file body (after imports section)
+    # Find which matchers are used in the file and add all corresponding imports
     missing_imports = []
-    for matcher, full_import in _KOTEST_IMPORTS.items():
+    for matcher, full_import in _KOTEST_IMPORTS:
         if re.search(rf"\b{re.escape(matcher)}\b", content) and full_import not in existing_imports:
             missing_imports.append(f"import {full_import}")
 
