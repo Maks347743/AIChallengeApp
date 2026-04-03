@@ -352,7 +352,68 @@ def analyze_and_generate_tests(
 # Step 4: Write test files
 # ---------------------------------------------------------------------------
 
+# Map from matcher function name to its full import path
+_KOTEST_IMPORTS: dict[str, str] = {
+    "shouldBe":                    "io.kotest.matchers.shouldBe",
+    "shouldNotBe":                 "io.kotest.matchers.shouldNotBe",
+    "shouldBeNull":                "io.kotest.matchers.nulls.shouldBeNull",
+    "shouldNotBeNull":             "io.kotest.matchers.nulls.shouldNotBeNull",
+    "shouldContain":               "io.kotest.matchers.string.shouldContain",
+    "shouldNotContain":            "io.kotest.matchers.string.shouldNotContain",
+    "shouldBeEmpty":               "io.kotest.matchers.collections.shouldBeEmpty",
+    "shouldHaveSize":              "io.kotest.matchers.collections.shouldHaveSize",
+    "shouldContainExactly":        "io.kotest.matchers.collections.shouldContainExactly",
+    "shouldBeGreaterThan":         "io.kotest.matchers.ints.shouldBeGreaterThan",
+    "shouldBeLessThan":            "io.kotest.matchers.ints.shouldBeLessThan",
+    "shouldBeLessThanOrEqualTo":   "io.kotest.matchers.ints.shouldBeLessThanOrEqualTo",
+    "shouldBeGreaterThanOrEqualTo":"io.kotest.matchers.ints.shouldBeGreaterThanOrEqualTo",
+}
+
+# Matchers that are not valid — replace with safe alternatives
+_INVALID_MATCHERS: dict[str, str] = {
+    "shouldBeLessThanOrEqual": "shouldBeLessThanOrEqualTo",
+    "shouldBeGreaterThanOrEqual": "shouldBeGreaterThanOrEqualTo",
+}
+
+
+def fix_kotlin_test_content(content: str) -> str:
+    """
+    Post-process AI-generated Kotlin test content:
+    1. Replace known invalid matcher names with correct ones.
+    2. Ensure all used Kotest matchers have their imports present.
+    3. Remove any kotlinx.coroutines.test imports.
+    """
+    # Fix invalid matcher names
+    for wrong, correct in _INVALID_MATCHERS.items():
+        content = content.replace(wrong, correct)
+
+    # Remove coroutines-test imports
+    content = re.sub(r"^import kotlinx\.coroutines\.test\.[^\n]*\n", "", content, flags=re.MULTILINE)
+
+    # Find the insertion point for imports (after the package line)
+    package_match = re.search(r"^package .+$", content, re.MULTILINE)
+    if not package_match:
+        return content
+    insert_pos = package_match.end()
+
+    # Collect existing imports
+    existing_imports = set(re.findall(r"^import (.+)$", content, re.MULTILINE))
+
+    # Find which matchers are used in the file body (after imports section)
+    missing_imports = []
+    for matcher, full_import in _KOTEST_IMPORTS.items():
+        if re.search(rf"\b{re.escape(matcher)}\b", content) and full_import not in existing_imports:
+            missing_imports.append(f"import {full_import}")
+
+    if missing_imports:
+        import_block = "\n" + "\n".join(sorted(missing_imports))
+        content = content[:insert_pos] + import_block + content[insert_pos:]
+
+    return content
+
+
 def write_test_file(path: str, content: str) -> None:
+    content = fix_kotlin_test_content(content)
     full_path = Path(path)
     full_path.parent.mkdir(parents=True, exist_ok=True)
     full_path.write_text(content, encoding="utf-8")
