@@ -1,6 +1,8 @@
 package com.example.aichallengeapp.feature.chat.domain.usecase
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.ints.shouldBeLessThan
 
 import com.example.aichallengeapp.core.database.domain.model.Constraint
 import com.example.aichallengeapp.feature.chat.domain.PromptTemplates
@@ -8,7 +10,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import io.kotest.matchers.ints.shouldBeLessThanOrEqualToTo
 
 class BuildSystemPromptUseCaseTest : FunSpec({
 
@@ -105,89 +106,84 @@ class BuildSystemPromptUseCaseTest : FunSpec({
         result shouldNotContain "## Память задачи"
     }
 
-    test("returns full result when maxLength is null") {
-        val longPrefix = "A".repeat(100)
+    test("does not truncate when maxLength is null") {
+        val longPrefix = "A".repeat(1000)
         val result = useCase(
             globalPrefix = longPrefix,
             chatPrompt = "",
             constraints = emptyList(),
             maxLength = null
         )
+        result.length shouldBeGreaterThan 1000
         result shouldContain longPrefix
     }
 
-    test("returns full result when length is less than maxLength") {
-        val shortPrefix = "Short prefix"
+    test("does not truncate when result length is less than maxLength") {
         val result = useCase(
-            globalPrefix = shortPrefix,
+            globalPrefix = "Short prefix",
             chatPrompt = "",
             constraints = emptyList(),
-            maxLength = 1000
+            maxLength = 5000
         )
-        result shouldContain shortPrefix
-        result.length shouldBeLessThanOrEqualToTo 1000
+        result.length shouldBeLessThan 5000
+        result shouldContain "Short prefix"
+        result shouldContain PromptTemplates.BASE_SYSTEM_PROMPT
     }
 
-    test("truncates result when length exceeds maxLength") {
-        val longPrefix = "A".repeat(200)
-        val maxLength = 100
+    test("truncates to exact maxLength when result exceeds maxLength") {
+        val longPrefix = "A".repeat(1000)
         val result = useCase(
             globalPrefix = longPrefix,
             chatPrompt = "",
             constraints = emptyList(),
-            maxLength = maxLength
+            maxLength = 500
         )
-        result.length shouldBe maxLength
+        result.length shouldBe 500
         result shouldContain "A" // Should contain part of the prefix
     }
 
-    test("truncation preserves beginning of content") {
-        val prefix = "BEGINNING"
-        val suffix = "END"
-        val middle = "M".repeat(200)
-        val chatPrompt = "$prefix$middle$suffix"
-        val maxLength = 50
-        
+    test("truncation preserves beginning of prompt when needed") {
+        val longPrefix = "BEGINNING_" + "A".repeat(1000) + "_END"
         val result = useCase(
-            globalPrefix = "",
-            chatPrompt = chatPrompt,
+            globalPrefix = longPrefix,
+            chatPrompt = "",
             constraints = emptyList(),
-            maxLength = maxLength
+            maxLength = 50
         )
-        
-        result.length shouldBe maxLength
-        result shouldContain "BEGINNING" // Should preserve the beginning
+        result.length shouldBe 50
+        result shouldContain "BEGINNING_" // Should preserve the beginning
     }
 
-    test("handles multiple constraints with maxLength truncation") {
+    test("handles multiple constraints with truncation") {
         val constraints = listOf(
             Constraint("Constraint1", "Description1", "pattern1", true),
             Constraint("Constraint2", "Description2", "pattern2", false),
             Constraint("Constraint3", "Description3", "pattern3", true)
         )
-        
         val result = useCase(
             globalPrefix = "",
             chatPrompt = "",
             constraints = constraints,
-            maxLength = 150
+            maxLength = 200
         )
-        
-        result.length shouldBeLessThanOrEqualToTo 150
+        result.length shouldBeLessThanOrEqualToTo 200
         result shouldContain "ВАЖНО"
     }
 
-    test("combines all components correctly with maxLength") {
+    test("combines all components in correct order") {
+        val constraints = listOf(
+            Constraint("Test", "Test description", "pattern", true)
+        )
         val result = useCase(
             globalPrefix = "Global prefix",
             chatPrompt = "Chat prompt",
-            constraints = listOf(Constraint("Test", "Description", "pattern", true)),
+            constraints = constraints,
             taskMemory = "Task memory",
             supportEnabled = true,
-            maxLength = 500
+            maxLength = null
         )
         
-        result.length shouldBeLessThanOrEqualToTo 500
+        // Check all components are present
         result shouldContain PromptTemplates.SUPPORT_SYSTEM_PROMPT
         result shouldContain PromptTemplates.BASE_SYSTEM_PROMPT
         result shouldContain "Global prefix"

@@ -5,8 +5,8 @@ import io.kotest.matchers.string.shouldContain
 import com.example.aichallengeapp.core.database.domain.model.ChatMetrics
 import com.example.aichallengeapp.core.database.domain.model.ResponseMetrics
 import com.example.aichallengeapp.core.database.domain.repository.ChatMetricsRepository
-import io.kotest.core.spec.style.FunSpec
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.flowOf
 
@@ -53,7 +53,7 @@ class UpdateMetricsUseCaseTest : FunSpec({
         val chatId = "chat456"
         val currentTotalTokens = 0
         val responseMetrics = ResponseMetrics(
-            responseTimeMs = 300L,
+            responseTimeMs = 200L,
             promptTokens = 10,
             completionTokens = 5,
             totalTokens = 15,
@@ -95,7 +95,7 @@ class UpdateMetricsUseCaseTest : FunSpec({
         val chatId = "chat999"
         val currentTotalTokens = -1
         val responseMetrics = ResponseMetrics(
-            responseTimeMs = 200L,
+            responseTimeMs = 300L,
             promptTokens = 10,
             completionTokens = 5,
             totalTokens = 15,
@@ -113,7 +113,7 @@ class UpdateMetricsUseCaseTest : FunSpec({
         val chatId = "chat999"
         val currentTotalTokens = 100
         val responseMetrics = ResponseMetrics(
-            responseTimeMs = 200L,
+            responseTimeMs = 300L,
             promptTokens = -1,
             completionTokens = 5,
             totalTokens = 4,
@@ -131,7 +131,7 @@ class UpdateMetricsUseCaseTest : FunSpec({
         val chatId = "chat999"
         val currentTotalTokens = 100
         val responseMetrics = ResponseMetrics(
-            responseTimeMs = 200L,
+            responseTimeMs = 300L,
             promptTokens = 10,
             completionTokens = -1,
             totalTokens = 9,
@@ -145,7 +145,7 @@ class UpdateMetricsUseCaseTest : FunSpec({
         exception.message shouldContain "completionTokens must be non-negative"
     }
 
-    test("should calculate correct total with large token values") {
+    test("should correctly calculate total with large token values") {
         val chatId = "chatLarge"
         val currentTotalTokens = 1000000
         val responseMetrics = ResponseMetrics(
