@@ -33,6 +33,11 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
+      - name: Replace broken gradlew
+        run: |
+          curl -sL "https://raw.githubusercontent.com/gradle/gradle/v9.3.1/gradlew" -o gradlew
+          chmod +x gradlew
+
       - name: Install dependencies
         run: pip install -r .github/scripts/requirements.txt
 
