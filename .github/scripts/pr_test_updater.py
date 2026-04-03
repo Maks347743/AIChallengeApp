@@ -311,39 +311,36 @@ def run_gradle_tests(modules: list[str]) -> tuple[bool, str]:
 def parse_test_results(modules: list[str]) -> dict:
     """
     Parse JUnit XML results from all affected feature modules.
+    Searches recursively under build/test-results/ for any TEST-*.xml files.
     Returns {total, passed, failed, skipped, failures: [{classname, testname, message}]}.
     """
     totals = {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "failures": []}
 
     for module in modules:
-        # Android library unit tests land in testDebugUnitTest; fall back to generic test
         module_dir = module.lstrip(":").replace(":", "/")
-        patterns = [
-            f"{module_dir}/build/test-results/testDebugUnitTest",
-            f"{module_dir}/build/test-results/test",
-        ]
-        for results_dir in patterns:
-            p = Path(results_dir)
-            if not p.exists():
-                continue
-            for xml_file in p.glob("TEST-*.xml"):
-                try:
-                    tree = ET.parse(xml_file)
-                    root = tree.getroot()
-                    totals["total"] += int(root.attrib.get("tests", 0))
-                    totals["failed"] += int(root.attrib.get("failures", 0)) + int(root.attrib.get("errors", 0))
-                    totals["skipped"] += int(root.attrib.get("skipped", 0))
-                    for tc in root.findall("testcase"):
-                        failure = tc.find("failure") or tc.find("error")
-                        if failure is not None:
-                            totals["failures"].append({
-                                "classname": tc.attrib.get("classname", ""),
-                                "testname": tc.attrib.get("name", ""),
-                                "message": (failure.attrib.get("message") or failure.text or "")[:500],
-                            })
-                except ET.ParseError:
-                    pass
-            break  # found the dir, no need to check fallback
+        results_root = Path(f"{module_dir}/build/test-results")
+        if not results_root.exists():
+            print(f"  WARNING: {results_root} does not exist — no test results found for {module}")
+            continue
+        xml_files = list(results_root.rglob("TEST-*.xml"))
+        print(f"  Found {len(xml_files)} XML result file(s) in {results_root}")
+        for xml_file in xml_files:
+            try:
+                tree = ET.parse(xml_file)
+                root = tree.getroot()
+                totals["total"] += int(root.attrib.get("tests", 0))
+                totals["failed"] += int(root.attrib.get("failures", 0)) + int(root.attrib.get("errors", 0))
+                totals["skipped"] += int(root.attrib.get("skipped", 0))
+                for tc in root.findall("testcase"):
+                    failure = tc.find("failure") or tc.find("error")
+                    if failure is not None:
+                        totals["failures"].append({
+                            "classname": tc.attrib.get("classname", ""),
+                            "testname": tc.attrib.get("name", ""),
+                            "message": (failure.attrib.get("message") or failure.text or "")[:500],
+                        })
+            except ET.ParseError:
+                pass
 
     totals["passed"] = totals["total"] - totals["failed"] - totals["skipped"]
     return totals
@@ -432,6 +429,7 @@ def build_comment_body(
     updates: list[dict],  # [{path, reason, is_new}]
     test_results: dict | None,
     committed: bool,
+    gradle_output: str = "",
 ) -> str:
     lines = []
 
@@ -468,17 +466,27 @@ def build_comment_body(
         failed = test_results["failed"]
         skipped = test_results["skipped"]
 
-        status_icon = "✅" if failed == 0 else "❌"
-        lines.append(f"{status_icon} **{passed} passed**, {failed} failed, {skipped} skipped (total: {total})")
+        if total == 0:
+            lines.append("⚠️ No test results found — Gradle may have failed to compile or run tests.")
+            if gradle_output.strip():
+                trimmed = gradle_output.strip()[-3000:]
+                lines.append("")
+                lines.append("<details><summary>Gradle output</summary>")
+                lines.append("")
+                lines.append(f"```\n{trimmed}\n```")
+                lines.append("</details>")
+        else:
+            status_icon = "✅" if failed == 0 else "❌"
+            lines.append(f"{status_icon} **{passed} passed**, {failed} failed, {skipped} skipped (total: {total})")
 
-        if test_results["failures"]:
-            lines.append("")
-            lines.append("<details><summary>Failures</summary>")
-            lines.append("")
-            for f in test_results["failures"]:
-                lines.append(f"**{f['classname']}#{f['testname']}**")
-                lines.append(f"```\n{f['message']}\n```")
-            lines.append("</details>")
+            if test_results["failures"]:
+                lines.append("")
+                lines.append("<details><summary>Failures</summary>")
+                lines.append("")
+                for f in test_results["failures"]:
+                    lines.append(f"**{f['classname']}#{f['testname']}**")
+                    lines.append(f"```\n{f['message']}\n```")
+                lines.append("</details>")
 
     return "\n".join(lines)
 
@@ -611,6 +619,7 @@ def main():
     # Step 5: Run tests (only if we wrote any test files)
     test_results = None
     committed = False
+    gradle_output = ""
 
     if written_paths:
         print(f"\nRunning tests for modules: {', '.join(affected_modules)}")
@@ -637,6 +646,7 @@ def main():
         updates=updates,
         test_results=test_results,
         committed=committed,
+        gradle_output=gradle_output,
     )
     post_or_update_comment(body)
 
