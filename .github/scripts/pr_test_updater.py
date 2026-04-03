@@ -287,6 +287,13 @@ def analyze_and_generate_tests(
         "- Do NOT import kotlinx.coroutines.test.* at all\n"
         "- For fakes of repository interfaces: implement the interface as an inner class in the test file\n"
         "- Use ALL constructor parameters shown in the RELATED CLASS DEFINITIONS — do not omit any\n\n"
+        "For testing that an exception is thrown, use shouldThrow — NEVER use runCatching + shouldBe KClass:\n"
+        "  import io.kotest.assertions.throwables.shouldThrow\n"
+        "  shouldThrow<IllegalArgumentException> { useCase(...) }\n"
+        "  // optionally chain: shouldThrow<IllegalArgumentException> { ... }.message shouldContain \"text\"\n\n"
+        "For testing result content: use shouldContain to check that KNOWN parts are present.\n"
+        "Do NOT use shouldBe for exact equality on results that include template/prompt content you cannot predict.\n"
+        "For truncation tests: assert result.length shouldBe maxLength, and result shouldContain the part of input you know appears first.\n\n"
         "APPROVED KOTEST MATCHERS — use ONLY these, with exactly these imports:\n"
         "  import io.kotest.matchers.shouldBe              → value shouldBe expected\n"
         "  import io.kotest.matchers.shouldNotBe           → value shouldNotBe expected\n"
@@ -372,6 +379,9 @@ _KOTEST_IMPORTS: list[tuple[str, str]] = [
     ("shouldBeLessThan",            "io.kotest.matchers.ints.shouldBeLessThan"),
     ("shouldBeLessThanOrEqualTo",   "io.kotest.matchers.ints.shouldBeLessThanOrEqualTo"),
     ("shouldBeGreaterThanOrEqualTo","io.kotest.matchers.ints.shouldBeGreaterThanOrEqualTo"),
+    ("shouldThrow",                 "io.kotest.assertions.throwables.shouldThrow"),
+    ("shouldNotThrow",              "io.kotest.assertions.throwables.shouldNotThrow"),
+    ("shouldBeInstanceOf",          "io.kotest.matchers.types.shouldBeInstanceOf"),
 ]
 
 # Matchers that are not valid — replace with safe alternatives
