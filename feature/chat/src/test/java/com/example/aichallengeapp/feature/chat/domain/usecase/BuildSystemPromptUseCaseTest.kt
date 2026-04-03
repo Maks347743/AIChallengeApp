@@ -4,6 +4,8 @@ import com.example.aichallengeapp.core.database.domain.model.Constraint
 import com.example.aichallengeapp.feature.chat.domain.PromptTemplates
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.shouldBe
 
 class BuildSystemPromptUseCaseTest : FunSpec({
 
@@ -47,5 +49,136 @@ class BuildSystemPromptUseCaseTest : FunSpec({
         )
         result shouldContain "ВАЖНО"
         result shouldContain "No swearing"
+    }
+
+    test("includes support system prompt when supportEnabled is true") {
+        val result = useCase(
+            globalPrefix = "",
+            chatPrompt = "",
+            constraints = emptyList(),
+            supportEnabled = true
+        )
+        result shouldContain PromptTemplates.SUPPORT_SYSTEM_PROMPT
+    }
+
+    test("excludes support system prompt when supportEnabled is false") {
+        val result = useCase(
+            globalPrefix = "",
+            chatPrompt = "",
+            constraints = emptyList(),
+            supportEnabled = false
+        )
+        result shouldNotContain PromptTemplates.SUPPORT_SYSTEM_PROMPT
+    }
+
+    test("includes task memory when not null or blank") {
+        val result = useCase(
+            globalPrefix = "",
+            chatPrompt = "",
+            constraints = emptyList(),
+            taskMemory = "Previous context here"
+        )
+        result shouldContain "## Память задачи"
+        result shouldContain "Previous context here"
+    }
+
+    test("excludes task memory when null") {
+        val result = useCase(
+            globalPrefix = "",
+            chatPrompt = "",
+            constraints = emptyList(),
+            taskMemory = null
+        )
+        result shouldNotContain "## Память задачи"
+    }
+
+    test("excludes task memory when blank") {
+        val result = useCase(
+            globalPrefix = "",
+            chatPrompt = "",
+            constraints = emptyList(),
+            taskMemory = ""
+        )
+        result shouldNotContain "## Память задачи"
+    }
+
+    test("truncates result when maxLength is specified and result exceeds it") {
+        val longPrefix = "A".repeat(100)
+        val result = useCase(
+            globalPrefix = longPrefix,
+            chatPrompt = "",
+            constraints = emptyList(),
+            maxLength = 50
+        )
+        result.length shouldBe 50
+        result shouldContain "A"
+    }
+
+    test("does not truncate when maxLength is null") {
+        val longPrefix = "A".repeat(100)
+        val result = useCase(
+            globalPrefix = longPrefix,
+            chatPrompt = "",
+            constraints = emptyList(),
+            maxLength = null
+        )
+        result.length shouldBe > 100
+    }
+
+    test("does not truncate when result length is less than maxLength") {
+        val result = useCase(
+            globalPrefix = "Short",
+            chatPrompt = "",
+            constraints = emptyList(),
+            maxLength = 1000
+        )
+        result.length shouldBe < 1000
+        result shouldContain "Short"
+    }
+
+    test("handles maxLength of zero") {
+        val result = useCase(
+            globalPrefix = "Test",
+            chatPrompt = "",
+            constraints = emptyList(),
+            maxLength = 0
+        )
+        result.length shouldBe 0
+        result shouldBe ""
+    }
+
+    test("preserves all components when maxLength is large enough") {
+        val constraints = listOf(
+            Constraint("Rule 1", "Description 1", "pattern1", true),
+            Constraint("Rule 2", "Description 2", "pattern2", false)
+        )
+        val result = useCase(
+            globalPrefix = "Prefix",
+            chatPrompt = "Chat prompt",
+            constraints = constraints,
+            taskMemory = "Task memory",
+            supportEnabled = true,
+            maxLength = 5000
+        )
+        
+        result shouldContain PromptTemplates.SUPPORT_SYSTEM_PROMPT
+        result shouldContain PromptTemplates.BASE_SYSTEM_PROMPT
+        result shouldContain "Prefix"
+        result shouldContain "## Память задачи"
+        result shouldContain "Task memory"
+        result shouldContain "Chat prompt"
+        result shouldContain "ВАЖНО"
+        result shouldContain "Rule 1"
+        result shouldContain "Rule 2"
+    }
+
+    test("truncation preserves beginning of string when maxLength is small") {
+        val result = useCase(
+            globalPrefix = "ABCDEFGHIJ",
+            chatPrompt = "",
+            constraints = emptyList(),
+            maxLength = 5
+        )
+        result shouldBe "ABCDE"
     }
 })
