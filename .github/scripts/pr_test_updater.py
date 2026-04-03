@@ -626,6 +626,14 @@ def build_comment_body(
                     lines.append(f"**{f['classname']}#{f['testname']}**")
                     lines.append(f"```\n{f['message']}\n```")
                 lines.append("</details>")
+            elif failed > 0 and gradle_output.strip():
+                # Failure details missing from XML (e.g. Kotest structure) — show Gradle output
+                trimmed = gradle_output.strip()[-3000:]
+                lines.append("")
+                lines.append("<details><summary>Gradle output (failure details)</summary>")
+                lines.append("")
+                lines.append(f"```\n{trimmed}\n```")
+                lines.append("</details>")
 
     return "\n".join(lines)
 
