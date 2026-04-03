@@ -295,11 +295,6 @@ def run_gradle_tests(modules: list[str]) -> tuple[bool, str]:
     Run unit tests for the given Gradle modules.
     Returns (success, output_text).
     """
-    # Strip Windows CRLF line endings so bash on Linux can execute the wrapper
-    gradlew_path = Path("gradlew")
-    gradlew_path.write_bytes(gradlew_path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n"))
-    subprocess.run(["chmod", "+x", "gradlew"], check=True)
-
     tasks = [f"{m}:test" for m in modules]
     cmd = ["./gradlew"] + tasks + ["--continue", "--no-daemon"]
     print(f"  Running: {' '.join(cmd)}")
