@@ -9,7 +9,8 @@ class BuildSystemPromptUseCase {
         chatPrompt: String,
         constraints: List<Constraint>,
         taskMemory: String? = null,
-        supportEnabled: Boolean = true
+        supportEnabled: Boolean = true,
+        maxLength: Int? = null
     ): String {
         val parts = buildList {
             if (supportEnabled) add(PromptTemplates.SUPPORT_SYSTEM_PROMPT)
@@ -27,6 +28,7 @@ class BuildSystemPromptUseCase {
                 add(block)
             }
         }
-        return parts.joinToString("\n\n")
+        val result = parts.joinToString("\n\n")
+        return if (maxLength != null && result.length > maxLength) result.take(maxLength) else result
     }
 }

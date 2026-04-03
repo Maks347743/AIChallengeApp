@@ -12,7 +12,11 @@ class UpdateMetricsUseCase(
         currentTotalTokens: Int,
         responseMetrics: ResponseMetrics
     ) {
-        val newTotal = currentTotalTokens + responseMetrics.promptTokens + responseMetrics.completionTokens
+        require(currentTotalTokens >= 0) { "currentTotalTokens must be non-negative" }
+        require(responseMetrics.promptTokens >= 0) { "promptTokens must be non-negative" }
+        require(responseMetrics.completionTokens >= 0) { "completionTokens must be non-negative" }
+
+        val newTotal = calculateNewTotal(currentTotalTokens, responseMetrics)
         metricsRepository.upsertMetrics(
             ChatMetrics(
                 chatId = chatId,
@@ -22,4 +26,7 @@ class UpdateMetricsUseCase(
             )
         )
     }
+
+    private fun calculateNewTotal(current: Int, metrics: ResponseMetrics): Int =
+        current + metrics.promptTokens + metrics.completionTokens
 }
