@@ -152,6 +152,55 @@ def identify_source_files(pr_files: list[dict]) -> list[dict]:
     return result
 
 
+BASE_PACKAGE = "com.example.aichallengeapp."
+
+def import_to_file_path(import_line: str) -> str | None:
+    """
+    Convert a Kotlin import like:
+      com.example.aichallengeapp.core.database.domain.model.ResponseMetrics
+    to a repo-relative file path:
+      core/database/src/main/java/com/example/aichallengeapp/core/database/domain/model/ResponseMetrics.kt
+    Returns None if the import is not a project class.
+    """
+    if not import_line.startswith(BASE_PACKAGE):
+        return None
+    rest = import_line[len(BASE_PACKAGE):]  # e.g. "core.database.domain.model.ResponseMetrics"
+    parts = rest.split(".")
+    # Module is first two dot-separated parts (e.g. core.database → core/database)
+    if len(parts) < 3:
+        return None
+    module_dir = "/".join(parts[:2])  # core/database
+    full_pkg_path = "/".join(BASE_PACKAGE.replace(".", "/").rstrip("/").split("/") + parts[:-1])
+    class_name = parts[-1]
+    return f"{module_dir}/src/main/java/{full_pkg_path}/{class_name}.kt"
+
+
+def fetch_imported_classes(source_content: str) -> str:
+    """
+    Parse import statements from Kotlin source, fetch content of project classes,
+    return a formatted string to include in the DeepSeek prompt.
+    """
+    import_re = re.compile(r"^import\s+(com\.example\.aichallengeapp\.\S+)", re.MULTILINE)
+    imports = import_re.findall(source_content)
+
+    sections = []
+    seen = set()
+    for imp in imports:
+        file_path = import_to_file_path(imp)
+        if not file_path or file_path in seen:
+            continue
+        seen.add(file_path)
+        content = fetch_file_content(file_path)
+        if content:
+            print(f"  Fetched imported class: {file_path}")
+            sections.append(f"// {file_path}\n{content.strip()}")
+
+    if not sections:
+        return ""
+    return "RELATED CLASS DEFINITIONS (use these for correct constructor signatures):\n" + \
+           "\n\n".join(f"```kotlin\n{s}\n```" for s in sections)
+
+
 # ---------------------------------------------------------------------------
 # Step 3: Call DeepSeek for test generation
 # ---------------------------------------------------------------------------
@@ -209,6 +258,7 @@ def analyze_and_generate_tests(
     test_path: str,
     existing_test_content: str | None,
     diff_patch: str,
+    imported_classes: str = "",
 ) -> dict | None:
     """
     Returns dict with keys: needs_update, reason, test_file_path, test_file_content.
@@ -232,7 +282,13 @@ def analyze_and_generate_tests(
         "- Cover: success paths, edge cases, error/null scenarios\n"
         "- Do NOT use mocks; prefer fakes or direct instantiation\n"
         "- Each test must be independent — no shared mutable state between tests\n"
-        "- Keep the existing package declaration and imports if updating a file\n\n"
+        "- Keep the existing package declaration and imports if updating a file\n"
+        "- ONLY import from: io.kotest.*, and the project's own classes (com.example.aichallengeapp.*)\n"
+        "- Do NOT import or use kotlinx.coroutines.test.runTest — "
+        "Kotest FunSpec test { } blocks natively support suspend functions, no wrapper needed\n"
+        "- Do NOT import kotlinx.coroutines.test.* at all\n"
+        "- For fakes of repository interfaces: implement the interface as an inner class in the test file\n"
+        "- Use ALL constructor parameters shown in the RELATED CLASS DEFINITIONS — do not omit any\n\n"
         f"Example of expected test style:\n```kotlin\n{KOTEST_EXAMPLE}\n```\n\n"
         "Respond ONLY with valid JSON (no markdown fences) in this exact format:\n"
         "{\n"
@@ -248,12 +304,15 @@ def analyze_and_generate_tests(
         "}"
     )
 
+    imported_section = f"\n\n{imported_classes}" if imported_classes else ""
+
     user_prompt = (
         f"SOURCE FILE: {source_path}\n\n"
         f"SOURCE CONTENT:\n```kotlin\n{source_content}\n```\n\n"
         f"{existing_test_section}\n\n"
         f"DIFF FOR THIS FILE:\n```diff\n{diff_patch}\n```\n\n"
-        f"Expected test file path: {test_path}\n\n"
+        f"Expected test file path: {test_path}"
+        f"{imported_section}\n\n"
         "Analyze the diff and source file. Decide if tests need to be created or updated. "
         "Return JSON only."
     )
@@ -591,8 +650,10 @@ def main():
         is_new = existing_test is None
         print(f"  Test file: {'not found (will create)' if is_new else 'found (will update if needed)'}")
 
+        imported_classes = fetch_imported_classes(source_content)
+
         result = analyze_and_generate_tests(
-            source_path, source_content, test_path, existing_test, diff_patch
+            source_path, source_content, test_path, existing_test, diff_patch, imported_classes
         )
 
         if result is None:
