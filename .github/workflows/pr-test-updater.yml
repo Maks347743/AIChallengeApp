@@ -33,15 +33,6 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
-      - name: Fix gradlew line endings and permissions
-        run: |
-          tr -d '\r' < gradlew > gradlew.tmp
-          mv gradlew.tmp gradlew
-          chmod +x gradlew
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Install dependencies
         run: pip install -r .github/scripts/requirements.txt
 
