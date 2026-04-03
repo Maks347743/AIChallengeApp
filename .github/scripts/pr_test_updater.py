@@ -398,9 +398,9 @@ def fix_kotlin_test_content(content: str) -> str:
     2. Ensure all used Kotest matchers have their imports present.
     3. Remove any kotlinx.coroutines.test imports.
     """
-    # Fix invalid matcher names
+    # Fix invalid matcher names — use regex to avoid double-replacement
     for wrong, correct in _INVALID_MATCHERS.items():
-        content = content.replace(wrong, correct)
+        content = re.sub(rf"\b{re.escape(wrong)}\b", correct, content)
 
     # Remove coroutines-test imports
     content = re.sub(r"^import kotlinx\.coroutines\.test\.[^\n]*\n", "", content, flags=re.MULTILINE)
