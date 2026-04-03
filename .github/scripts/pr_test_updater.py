@@ -307,7 +307,8 @@ def analyze_and_generate_tests(
         "  import io.kotest.matchers.collections.shouldContainExactly → list shouldContainExactly listOf(...)\n"
         "  import io.kotest.matchers.ints.shouldBeGreaterThan  → int shouldBeGreaterThan n\n"
         "  import io.kotest.matchers.ints.shouldBeLessThan     → int shouldBeLessThan n\n"
-        "  import io.kotest.matchers.ints.shouldBeLessThanOrEqualTo → int shouldBeLessThanOrEqualTo n\n"
+        "  import io.kotest.matchers.ints.shouldBeLessThanOrEqual → int shouldBeLessThanOrEqual n\n"
+        "  import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual → int shouldBeGreaterThanOrEqual n\n"
         "Do NOT call any matcher not listed above. "
         "For any comparison not covered, use: (expr) shouldBe true/false.\n\n"
         f"Example of expected test style:\n```kotlin\n{KOTEST_EXAMPLE}\n```\n\n"
@@ -377,8 +378,8 @@ _KOTEST_IMPORTS: list[tuple[str, str]] = [
     ("shouldContainExactly",        "io.kotest.matchers.collections.shouldContainExactly"),
     ("shouldBeGreaterThan",         "io.kotest.matchers.ints.shouldBeGreaterThan"),
     ("shouldBeLessThan",            "io.kotest.matchers.ints.shouldBeLessThan"),
-    ("shouldBeLessThanOrEqualTo",   "io.kotest.matchers.ints.shouldBeLessThanOrEqualTo"),
-    ("shouldBeGreaterThanOrEqualTo","io.kotest.matchers.ints.shouldBeGreaterThanOrEqualTo"),
+    ("shouldBeLessThanOrEqual",      "io.kotest.matchers.ints.shouldBeLessThanOrEqual"),
+    ("shouldBeGreaterThanOrEqual",   "io.kotest.matchers.ints.shouldBeGreaterThanOrEqual"),
     ("shouldThrow",                 "io.kotest.assertions.throwables.shouldThrow"),
     ("shouldNotThrow",              "io.kotest.assertions.throwables.shouldNotThrow"),
     ("shouldBeInstanceOf",          "io.kotest.matchers.types.shouldBeInstanceOf"),
