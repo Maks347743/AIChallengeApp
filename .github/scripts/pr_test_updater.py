@@ -384,10 +384,10 @@ _KOTEST_IMPORTS: list[tuple[str, str]] = [
     ("shouldBeInstanceOf",          "io.kotest.matchers.types.shouldBeInstanceOf"),
 ]
 
-# Matchers that are not valid — replace with safe alternatives
+# Matchers that are not valid in Kotest 6.x — replace with correct names
 _INVALID_MATCHERS: dict[str, str] = {
-    "shouldBeLessThanOrEqual": "shouldBeLessThanOrEqualTo",
-    "shouldBeGreaterThanOrEqual": "shouldBeGreaterThanOrEqualTo",
+    "shouldBeLessThanOrEqualTo": "shouldBeLessThanOrEqual",
+    "shouldBeGreaterThanOrEqualTo": "shouldBeGreaterThanOrEqual",
 }
 
 
