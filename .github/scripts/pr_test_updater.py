@@ -287,6 +287,8 @@ def analyze_and_generate_tests(
         "- Do NOT import or use kotlinx.coroutines.test.runTest — "
         "Kotest FunSpec test { } blocks natively support suspend functions, no wrapper needed\n"
         "- Do NOT import kotlinx.coroutines.test.* at all\n"
+        "- Do NOT use `shouldBe >` or `shouldBe <` — use shouldBeGreaterThan(n) / shouldBeLessThan(n) instead\n"
+        "- Do NOT use comparison operators after shouldBe — shouldBe only accepts exact equality\n"
         "- For fakes of repository interfaces: implement the interface as an inner class in the test file\n"
         "- Use ALL constructor parameters shown in the RELATED CLASS DEFINITIONS — do not omit any\n\n"
         f"Example of expected test style:\n```kotlin\n{KOTEST_EXAMPLE}\n```\n\n"
