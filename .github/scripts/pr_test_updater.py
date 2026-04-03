@@ -296,7 +296,7 @@ def run_gradle_tests(modules: list[str]) -> tuple[bool, str]:
     Returns (success, output_text).
     """
     tasks = [f"{m}:test" for m in modules]
-    cmd = ["./gradlew"] + tasks + ["--continue", "--no-daemon"]
+    cmd = ["gradle"] + tasks + ["--continue", "--no-daemon"]
     print(f"  Running: {' '.join(cmd)}")
 
     result = subprocess.run(
